@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    box-sizing: border-box;
+  }
+
+  html {
+    height: 100%;
+    overscroll-behavior: none;
+    background: #09090B;
+  }
+
+  body {
+    height: 100%;
+    background: #09090B;
+    overscroll-behavior: none;
+    color: #F4F4F5;
+  }
+
+  /* Remove all scrollbars globally */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Prevent text selection on interactive elements */
+  button,
+  [role="button"],
+  a {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Smooth momentum scrolling on iOS */
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+
+  /* Input reset */
+  textarea,
+  input {
+    outline: none;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+  }
+}
+
+@layer utilities {
+  /* Safe area utilities */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mt-safe {
+    margin-top: env(safe-area-inset-top);
+  }
+
+  /* Nav clearance */
+  .pb-nav {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  /* Full dynamic viewport height */
+  .h-dvh {
+    height: 100dvh;
+  }
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+
+  /* Chip / tag primitive */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium leading-none;
+  }
+
+  /* Press / active state */
+  .pressable {
+    @apply transition-all duration-100 active:scale-[0.96] active:opacity-80;
+  }
+
+  /* Card base */
+  .card {
+    background: #1C1C22;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow:
+      0 1px 1px rgba(0, 0, 0, 0.4),
+      0 4px 20px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    border-radius: 20px;
+  }
+
+  /* Subtle divider */
+  .divider {
+    @apply w-full h-px bg-white/[0.06];
+  }
+
+  /* Ambient glow overlay — positioned absolutely inside relative parent */
+  .ambient-glow-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 55%;
+    background: radial-gradient(
+      ellipse 85% 55% at 50% 0%,
+      rgba(0, 200, 117, 0.09) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glass surface */
+  .glass {
+    background: rgba(20, 20, 24, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Text gradient — green */
+  .text-gradient-green {
+    background: linear-gradient(135deg, #34D399 0%, #00C875 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Shimmering skeleton */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 100%
+    );
+    animation: shimmer 2.2s linear infinite;
+  }
+
+  /* Stagger animation delays */
+  .delay-75 {
+    animation-delay: 75ms;
+  }
+  .delay-150 {
+    animation-delay: 150ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+  .delay-700 {
+    animation-delay: 700ms;
+  }
+  .delay-1000 {
+    animation-delay: 1000ms;
+  }
+
+  /* Opacity initial for animations */
+  .opacity-0-init {
+    opacity: 0;
+  }
+}
+
+/* ── Global input / textarea focus ring override ─────────────────────────── */
+.input-premium:focus {
+  box-shadow:
+    0 0 0 1px rgba(0, 200, 117, 0.4),
+    0 0 24px rgba(0, 200, 117, 0.12),
+    0 4px 20px rgba(0, 0, 0, 0.4);
+  border-color: rgba(0, 200, 117, 0.4) !important;
+  background: rgba(0, 200, 117, 0.03) !important;
+}

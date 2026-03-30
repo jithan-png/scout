@@ -1,0 +1,535 @@
+"use client";
+
+import { useState } from "react";
+import {
+  MessageCircle,
+  Mail,
+  Smartphone,
+  Database,
+  FileSpreadsheet,
+  Check,
+  ChevronRight,
+  MapPin,
+  Tag,
+  X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAppStore } from "@/lib/store";
+import BottomNav from "@/components/ui/BottomNav";
+import type { DataConnection } from "@/lib/types";
+
+// ── Connection config ─────────────────────────────────────────────────────────
+
+const CONNECTION_ICONS = {
+  whatsapp: MessageCircle,
+  gmail: Mail,
+  contacts: Smartphone,
+  crm: Database,
+  excel: FileSpreadsheet,
+};
+
+const CONNECTION_ACCENT: Record<DataConnection["type"], string> = {
+  whatsapp: "#25D366",
+  gmail: "#EA4335",
+  contacts: "#3B82F6",
+  crm: "#8B5CF6",
+  excel: "#10B981",
+};
+
+const CONNECTION_DESC: Record<DataConnection["type"], string> = {
+  whatsapp: "Lead alerts & relationship intel on WhatsApp",
+  gmail: "Map email history into a relationship graph",
+  contacts: "Find warm paths via phone contacts",
+  crm: "Sync pipeline with your existing CRM",
+  excel: "Import customer / contact list via CSV",
+};
+
+const CONNECTION_DETAIL: Record<DataConnection["type"], { what: string; how: string; cta: string }> = {
+  whatsapp: {
+    what: "Scout will send you proactive lead alerts and follow-up nudges via WhatsApp — no app to check.",
+    how: "Enter your phone number in the setup wizard and Scout will send you a verification message.",
+    cta: "Set up in wizard",
+  },
+  gmail: {
+    what: "Scout reads your sent email history to map relationship strength — who you know, how often you've been in touch, and how recently.",
+    how: "A secure OAuth connection. Scout only reads, never sends. Your data stays private.",
+    cta: "Connect Gmail",
+  },
+  contacts: {
+    what: "Scout checks your phone contacts to find warm paths to contractors and builders — people you may already know.",
+    how: "Your contacts are matched locally. Nothing is uploaded or stored externally.",
+    cta: "Set up in wizard",
+  },
+  crm: {
+    what: "Sync BuildMapper leads back into your existing CRM so your pipeline stays in one place.",
+    how: "Currently supports manual CSV export. Native CRM integrations are coming soon.",
+    cta: "Coming soon",
+  },
+  excel: {
+    what: "Import your own customer or contact list from Excel or CSV to instantly enrich Scout's warm path matching.",
+    how: "Upload a file with Name, Company, Email columns. Scout will match against live permit data.",
+    cta: "Set up in wizard",
+  },
+};
+
+// ── Connect modal ─────────────────────────────────────────────────────────────
+
+function ConnectModal({
+  conn,
+  onClose,
+  onSetup,
+}: {
+  conn: DataConnection;
+  onClose: () => void;
+  onSetup: () => void;
+}) {
+  const Icon = CONNECTION_ICONS[conn.type];
+  const accent = CONNECTION_ACCENT[conn.type];
+  const detail = CONNECTION_DETAIL[conn.type];
+  const isComing = detail.cta === "Coming soon";
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40"
+        style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 mx-auto animate-slide-up"
+        style={{ maxWidth: 430 }}
+      >
+        <div
+          className="rounded-t-3xl px-5 pt-5 pb-10"
+          style={{
+            background: "#1C1C22",
+            border: "1px solid rgba(255,255,255,0.09)",
+            boxShadow: "0 -8px 40px rgba(0,0,0,0.6)",
+          }}
+        >
+          {/* Drag handle */}
+          <div
+            className="w-10 h-1 rounded-full mx-auto mb-5"
+            style={{ background: "rgba(255,255,255,0.12)" }}
+          />
+
+          {/* Header */}
+          <div className="flex items-start gap-3 mb-5">
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{ background: `${accent}18`, border: `1px solid ${accent}30` }}
+            >
+              <Icon size={20} style={{ color: accent }} strokeWidth={1.75} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[17px] font-bold" style={{ color: "#F4F4F5" }}>
+                {conn.name}
+              </p>
+              <p className="text-[12px] mt-0.5" style={{ color: "#52525B" }}>
+                {CONNECTION_DESC[conn.type]}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="pressable w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.06)" }}
+            >
+              <X size={15} style={{ color: "#71717A" }} strokeWidth={2} />
+            </button>
+          </div>
+
+          {/* What it does */}
+          <div
+            className="rounded-2xl p-4 mb-3"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
+            <p className="text-[13px] leading-relaxed" style={{ color: "#A1A1AA" }}>
+              {detail.what}
+            </p>
+          </div>
+
+          {/* How */}
+          <div className="flex items-start gap-2.5 px-1 mb-6">
+            <div
+              className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
+              style={{ background: accent }}
+            />
+            <p className="text-[12px] leading-relaxed" style={{ color: "#52525B" }}>
+              {detail.how}
+            </p>
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={isComing ? onClose : onSetup}
+            className="pressable w-full py-4 rounded-2xl text-[15px] font-semibold"
+            style={
+              isComing
+                ? {
+                    background: "rgba(255,255,255,0.05)",
+                    color: "#52525B",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                  }
+                : {
+                    background: `linear-gradient(135deg, ${accent} 0%, ${accent}CC 100%)`,
+                    color: "#fff",
+                    boxShadow: `0 0 20px ${accent}33`,
+                  }
+            }
+          >
+            {detail.cta}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Connection row ────────────────────────────────────────────────────────────
+
+function ConnectionRow({
+  conn,
+  onConnect,
+}: {
+  conn: DataConnection;
+  onConnect: () => void;
+}) {
+  const Icon = CONNECTION_ICONS[conn.type];
+  const accent = CONNECTION_ACCENT[conn.type];
+  const isConnected = conn.status === "connected";
+
+  return (
+    <div
+      className="flex items-center gap-3 px-4 py-4 rounded-2xl"
+      style={{
+        background: "#1C1C22",
+        border: "1px solid rgba(255,255,255,0.07)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
+    >
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{
+          background: `${accent}18`,
+          border: `1px solid ${accent}25`,
+        }}
+      >
+        <Icon size={16} style={{ color: accent }} strokeWidth={1.75} />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>
+          {conn.name}
+        </p>
+        <p className="text-[11px] mt-0.5" style={{ color: "#52525B" }}>
+          {isConnected && conn.dataPoints ? conn.dataPoints : CONNECTION_DESC[conn.type]}
+        </p>
+      </div>
+
+      {isConnected ? (
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full flex-shrink-0"
+          style={{
+            background: "rgba(0,200,117,0.10)",
+            border: "1px solid rgba(0,200,117,0.2)",
+          }}
+        >
+          <Check size={9} style={{ color: "#00C875" }} strokeWidth={3} />
+          <span className="text-[10px] font-bold" style={{ color: "#34D399" }}>
+            Connected
+          </span>
+        </div>
+      ) : (
+        <button
+          onClick={onConnect}
+          className="pressable flex items-center gap-0.5 text-[13px] font-semibold flex-shrink-0"
+          style={{ color: "#00C875" }}
+        >
+          Connect
+          <ChevronRight size={13} strokeWidth={2.5} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Scout status badge ────────────────────────────────────────────────────────
+
+function ScoutStatusBadge({ connected }: { connected: number }) {
+  return (
+    <div
+      className="rounded-2xl overflow-hidden mb-5"
+      style={{
+        background: "#1C1C22",
+        border: "1px solid rgba(255,255,255,0.07)",
+        boxShadow:
+          "0 1px 1px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
+    >
+      {/* Scout header stripe */}
+      <div
+        className="px-4 py-3 flex items-center gap-2.5"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(0,200,117,0.12) 0%, rgba(0,200,117,0.04) 100%)",
+          borderBottom: "1px solid rgba(0,200,117,0.12)",
+        }}
+      >
+        <div
+          className="w-2 h-2 rounded-full"
+          style={{
+            background: "#00C875",
+            boxShadow: "0 0 6px rgba(0,200,117,0.6)",
+          }}
+        />
+        <span
+          className="text-[13px] font-semibold"
+          style={{ color: "#34D399" }}
+        >
+          Scout is active · watching your market
+        </span>
+        <span
+          className="ml-auto text-[11px]"
+          style={{ color: "#52525B" }}
+        >
+          {connected} sources
+        </span>
+      </div>
+
+      {/* Body */}
+      <ScoutConfigBody />
+    </div>
+  );
+}
+
+function ScoutConfigBody() {
+  const router = useRouter();
+  const { user, setup } = useAppStore();
+  const trades = user?.whatISell ?? setup.whatISell;
+  const cities = user?.whereIOperate ?? setup.whereIOperate;
+  const types = user?.projectTypes ?? setup.projectTypes;
+
+  return (
+    <div className="p-4 flex flex-col gap-4">
+      {/* Trades */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <Tag size={11} style={{ color: "#3F3F46" }} />
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest"
+            style={{ color: "#3F3F46" }}
+          >
+            What you sell
+          </p>
+        </div>
+        {trades.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {trades.map((t) => (
+              <span
+                key={t}
+                className="text-[11px] font-medium px-2.5 py-1 rounded-lg"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#A1A1AA",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[13px]" style={{ color: "#3F3F46" }}>
+            Not configured
+          </p>
+        )}
+      </div>
+
+      {/* Cities */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <MapPin size={11} style={{ color: "#3F3F46" }} />
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest"
+            style={{ color: "#3F3F46" }}
+          >
+            Where you work
+          </p>
+        </div>
+        {cities.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {cities.map((c) => (
+              <span
+                key={c}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                style={{
+                  background: "rgba(0,200,117,0.08)",
+                  color: "#34D399",
+                  border: "1px solid rgba(0,200,117,0.18)",
+                }}
+              >
+                {c}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[13px]" style={{ color: "#3F3F46" }}>
+            Not configured
+          </p>
+        )}
+      </div>
+
+      {/* Types */}
+      {types.length > 0 && (
+        <div>
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest mb-2"
+            style={{ color: "#3F3F46" }}
+          >
+            Project types
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {types.map((t) => (
+              <span
+                key={t}
+                className="text-[11px] font-medium px-2.5 py-1 rounded-lg"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#A1A1AA",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => router.push("/setup")}
+        className="pressable text-[13px] font-semibold text-left"
+        style={{ color: "#00C875" }}
+      >
+        Edit configuration →
+      </button>
+    </div>
+  );
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const { connections } = useAppStore();
+  const connectedCount = connections.filter((c) => c.status === "connected").length;
+  const [activeConn, setActiveConn] = useState<DataConnection | null>(null);
+
+  return (
+    <div className="flex flex-col min-h-dvh bg-base">
+      <div className="safe-top" />
+
+      <header className="px-5 pt-5 pb-5">
+        <h1
+          className="text-[24px] font-bold"
+          style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
+        >
+          Profile
+        </h1>
+        <p className="text-[13px] mt-0.5" style={{ color: "#52525B" }}>
+          Your Scout configuration
+        </p>
+      </header>
+
+      <main className="px-5 pb-6">
+        {/* Scout config */}
+        <ScoutStatusBadge connected={connectedCount} />
+
+        {/* Data sources */}
+        <div className="mb-5">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest mb-3"
+            style={{ color: "#3F3F46" }}
+          >
+            Data sources
+          </p>
+          <div className="flex flex-col gap-2">
+            {connections.map((conn) => (
+              <ConnectionRow
+                key={conn.id}
+                conn={conn}
+                onConnect={() => setActiveConn(conn)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* App links */}
+        <div className="flex flex-col gap-1">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest mb-2"
+            style={{ color: "#3F3F46" }}
+          >
+            App
+          </p>
+          {["Privacy Policy", "Terms of Service", "Send feedback", "Sign out"].map(
+            (item) => (
+              <button
+                key={item}
+                className="pressable flex items-center justify-between px-4 py-3.5 rounded-xl"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                }}
+              >
+                <span
+                  className="text-[14px]"
+                  style={{
+                    color: item === "Sign out" ? "#EF4444" : "#71717A",
+                  }}
+                >
+                  {item}
+                </span>
+                {item !== "Sign out" && (
+                  <ChevronRight
+                    size={14}
+                    style={{ color: "#3F3F46" }}
+                    strokeWidth={1.5}
+                  />
+                )}
+              </button>
+            )
+          )}
+        </div>
+
+        <p
+          className="text-center text-[11px] mt-6"
+          style={{ color: "#3F3F46" }}
+        >
+          BuildMapper · v1.0.0
+        </p>
+      </main>
+
+      <div className="pb-nav" />
+      <BottomNav />
+
+      {/* Connection modal */}
+      {activeConn && (
+        <ConnectModal
+          conn={activeConn}
+          onClose={() => setActiveConn(null)}
+          onSetup={() => {
+            setActiveConn(null);
+            router.push("/setup");
+          }}
+        />
+      )}
+    </div>
+  );
+}
