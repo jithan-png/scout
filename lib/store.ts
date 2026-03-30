@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Opportunity, Alert, AgentUpdate, DataConnection, SearchIntent, User } from "./types";
+import type { Opportunity, Alert, AgentUpdate, DataConnection, SearchIntent, User, ScoutOpportunity } from "./types";
 import {
   MOCK_OPPORTUNITIES,
   MOCK_ALERTS,
@@ -74,9 +74,11 @@ interface AppStore {
   saveOpportunity: (id: string) => void;
   unsaveOpportunity: (id: string) => void;
 
-  // Scout briefing
+  // Scout briefing + coverage
   scoutBriefing: string | null;
   setScoutBriefing: (text: string) => void;
+  coverageNote: string | null;
+  setCoverageNote: (note: string) => void;
 
   // Alerts
   alerts: Alert[];
@@ -178,7 +180,7 @@ export const useAppStore = create<AppStore>()(
           isLoadingOpportunities: true,
         }),
 
-      finishAgent: (realOpportunities?: Opportunity[]) =>
+      finishAgent: (realOpportunities?: Opportunity[] | ScoutOpportunity[]) =>
         set((s) => ({
           isAgentWorking: false,
           agentProgress: 100,
@@ -209,9 +211,11 @@ export const useAppStore = create<AppStore>()(
 
       selectOpportunity: (id) => set({ selectedOpportunityId: id }),
 
-      // ── Scout briefing ────────────────────────────────────────────────────────
+      // ── Scout briefing + coverage ─────────────────────────────────────────────
       scoutBriefing: null,
       setScoutBriefing: (text) => set({ scoutBriefing: text }),
+      coverageNote: null,
+      setCoverageNote: (note) => set({ coverageNote: note }),
 
       saveOpportunity: (id) =>
         set((s) => {

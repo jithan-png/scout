@@ -6,13 +6,21 @@ import { SlidersHorizontal } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import OpportunityCard from "@/components/opportunities/OpportunityCard";
 import BottomNav from "@/components/ui/BottomNav";
-import type { OpportunityPriority, Opportunity } from "@/lib/types";
+import type { OpportunityPriority, Opportunity, LeadSource, ScoutOpportunity } from "@/lib/types";
 
 const FILTERS: { label: string; value: OpportunityPriority | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Hot", value: "hot" },
   { label: "Warm", value: "warm" },
   { label: "Watch", value: "watch" },
+];
+
+const SOURCE_FILTERS: { label: string; value: LeadSource | "all" }[] = [
+  { label: "All Sources", value: "all" },
+  { label: "Permit", value: "permit" },
+  { label: "Web", value: "web" },
+  { label: "Tender", value: "procurement" },
+  { label: "LinkedIn", value: "linkedin" },
 ];
 
 // ── Skeleton card ─────────────────────────────────────────────────────────────
@@ -83,9 +91,10 @@ function matchesIntent(opp: Opportunity, intent: string): boolean {
 
 export default function OpportunitiesPage() {
   const router = useRouter();
-  const { opportunities, isLoadingOpportunities, savedOpportunityIds, selectOpportunity, activeIntent } =
+  const { opportunities, isLoadingOpportunities, savedOpportunityIds, selectOpportunity, activeIntent, coverageNote } =
     useAppStore();
   const [filter, setFilter] = useState<OpportunityPriority | "all">("all");
+  const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
 
   // When an intent search was run, pre-filter by relevance
   const intentFiltered = activeIntent
@@ -95,15 +104,24 @@ export default function OpportunitiesPage() {
   // If intent filter yields nothing, fall back to full list
   const baseList = intentFiltered.length > 0 ? intentFiltered : opportunities;
 
+  // Apply source filter (only meaningful on ScoutOpportunity items)
+  const sourceFiltered =
+    sourceFilter === "all"
+      ? baseList
+      : baseList.filter((o) => {
+          const scout = o as ScoutOpportunity;
+          return scout.primarySource === sourceFilter;
+        });
+
   const filtered =
     filter === "all"
-      ? baseList
-      : baseList.filter((o) => o.priority === filter);
+      ? sourceFiltered
+      : sourceFiltered.filter((o) => o.priority === filter);
 
   const counts = {
-    hot: baseList.filter((o) => o.priority === "hot").length,
-    warm: baseList.filter((o) => o.priority === "warm").length,
-    watch: baseList.filter((o) => o.priority === "watch").length,
+    hot: sourceFiltered.filter((o) => o.priority === "hot").length,
+    warm: sourceFiltered.filter((o) => o.priority === "warm").length,
+    watch: sourceFiltered.filter((o) => o.priority === "watch").length,
   };
 
   return (
@@ -144,11 +162,11 @@ export default function OpportunitiesPage() {
           </button>
         </div>
 
-        {/* Filter pills */}
-        <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        {/* Priority filter pills */}
+        <div className="flex gap-2 overflow-x-auto mb-2.5" style={{ scrollbarWidth: "none" }}>
           {FILTERS.map(({ label, value }) => {
             const isActive = filter === value;
-            const count = value === "all" ? baseList.length : counts[value];
+            const count = value === "all" ? sourceFiltered.length : counts[value];
             return (
               <button
                 key={value}
@@ -179,7 +197,53 @@ export default function OpportunitiesPage() {
             );
           })}
         </div>
+
+        {/* Source filter pills */}
+        <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          {SOURCE_FILTERS.map(({ label, value }) => {
+            const isActive = sourceFilter === value;
+            return (
+              <button
+                key={value}
+                onClick={() => setSourceFilter(value)}
+                className="pressable flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200"
+                style={
+                  isActive
+                    ? {
+                        background: "rgba(255,255,255,0.12)",
+                        color: "#E4E4E7",
+                        border: "1px solid rgba(255,255,255,0.2)",
+                      }
+                    : {
+                        background: "rgba(255,255,255,0.03)",
+                        color: "#52525B",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }
+                }
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </header>
+
+      {/* ── Coverage note ──────────────────────────────────────────────── */}
+      {coverageNote && !isLoadingOpportunities && (
+        <div className="px-5 pb-3">
+          <div
+            className="px-4 py-3 rounded-xl"
+            style={{
+              background: "rgba(0,200,117,0.06)",
+              border: "1px solid rgba(0,200,117,0.14)",
+            }}
+          >
+            <p className="text-[12px] leading-relaxed" style={{ color: "#6EE7B7" }}>
+              {coverageNote}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Cards ──────────────────────────────────────────────────── */}
       <main className="px-5">

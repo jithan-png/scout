@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Check, MessageCircle } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { MOCK_AGENT_UPDATES } from "@/lib/mock-data";
-import { fetchOpportunitiesFromBriefing } from "@/lib/api";
+import { runScout } from "@/lib/api";
 import OpportunityCard from "@/components/opportunities/OpportunityCard";
-import type { Opportunity } from "@/lib/types";
+import type { ScoutOpportunity } from "@/lib/types";
 
 type UpdateType = "scanning" | "matching" | "mapping" | "finding" | "complete";
 
@@ -52,25 +52,26 @@ const TYPE_COLOR: Record<UpdateType, string> = {
 
 export default function WorkingPage() {
   const router = useRouter();
-  const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, opportunities, setWhatsappPhone, whatsappPhone } =
+  const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, setCoverageNote, opportunities, setWhatsappPhone, whatsappPhone } =
     useAppStore();
   const [done, setDone] = useState(false);
   const [showTyping, setShowTyping] = useState(true);
   const [liveCount, setLiveCount] = useState<number | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
   const [whatsappSaved, setWhatsappSaved] = useState(false);
-  const realDataRef = useRef<Opportunity[] | null>(null);
+  const realDataRef = useRef<ScoutOpportunity[] | null>(null);
 
   useEffect(() => {
-    // Fire real API call in parallel with the animation
-    fetchOpportunitiesFromBriefing()
-      .then(({ opportunities, briefing, newPermitsCount }) => {
-        realDataRef.current = opportunities.length > 0 ? opportunities : null;
-        setLiveCount(newPermitsCount);
-        setScoutBriefing(briefing);
+    // Fire real Scout run in parallel with the animation
+    const query = activeIntent || "construction leads";
+    runScout(query)
+      .then(({ opportunities: opps, coverageNote }) => {
+        realDataRef.current = opps.length > 0 ? opps : null;
+        setLiveCount(opps.length);
+        setCoverageNote(coverageNote);
+        setScoutBriefing(`Scout found ${opps.length} leads matching your profile.`);
       })
       .catch(() => {
-        // Backend unreachable — fall back to mock data silently
         realDataRef.current = null;
       });
 

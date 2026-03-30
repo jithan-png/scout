@@ -111,6 +111,59 @@ export interface Alert {
   read: boolean;
 }
 
+// ── Scout Real-Data Types ──────────────────────────────────────────────────────
+
+export type LeadSource = "permit" | "web" | "procurement" | "linkedin" | "unknown";
+
+export interface ScoreBreakdown {
+  total: number;
+  request_fit: number;   // max 30
+  timing: number;        // max 20
+  commercial: number;    // max 15
+  relationship: number;  // max 25
+  confidence: number;    // max 10
+  priority: "hot" | "warm" | "watch";
+}
+
+export interface LeadSourceRecord {
+  source_type: LeadSource;
+  source_url?: string;
+  source_date?: string;
+  confidence: "high" | "medium" | "low";
+  title?: string;
+  excerpt?: string;
+  linkedin_post_url?: string;
+  poster_name?: string;
+  poster_company?: string;
+}
+
+export interface ScoutOpportunity extends Opportunity {
+  scoreBreakdown: ScoreBreakdown;
+  primarySource: LeadSource;
+  sourceRecords: LeadSourceRecord[];
+  // Extra project fields from the rich backend model
+  estimatedValue?: number;
+  unitCount?: number;
+  storeyCount?: number;
+  projectStatus?: string;
+  earliestSignalDate?: string;
+  companies?: Array<{
+    id: string;
+    name: string;
+    roles: string[];
+    phone?: string;
+    email?: string;
+    website?: string;
+  }>;
+  contacts?: Array<{
+    id: string;
+    name: string;
+    role: string;
+    phone?: string;
+    email?: string;
+  }>;
+}
+
 export interface DataConnection {
   id: string;
   name: string;

@@ -1,7 +1,7 @@
 "use client";
 
-import { MapPin, Clock } from "lucide-react";
-import type { Opportunity } from "@/lib/types";
+import { MapPin, Clock, Building2, Globe, FileText, Linkedin } from "lucide-react";
+import type { Opportunity, ScoutOpportunity, LeadSource } from "@/lib/types";
 
 // ── Score ring ────────────────────────────────────────────────────────────────
 
@@ -75,6 +75,76 @@ const PRIORITY = {
   },
 };
 
+// ── Source badge ─────────────────────────────────────────────────────────────
+
+const SOURCE_CONFIG: Record<
+  LeadSource,
+  { label: string; color: string; bg: string; border: string; icon: React.ReactNode }
+> = {
+  permit: {
+    label: "PERMIT",
+    color: "#60A5FA",
+    bg: "rgba(96,165,250,0.10)",
+    border: "rgba(96,165,250,0.2)",
+    icon: <Building2 size={9} strokeWidth={2.5} />,
+  },
+  web: {
+    label: "WEB",
+    color: "#A1A1AA",
+    bg: "rgba(255,255,255,0.05)",
+    border: "rgba(255,255,255,0.09)",
+    icon: <Globe size={9} strokeWidth={2.5} />,
+  },
+  procurement: {
+    label: "TENDER",
+    color: "#A78BFA",
+    bg: "rgba(167,139,250,0.10)",
+    border: "rgba(167,139,250,0.2)",
+    icon: <FileText size={9} strokeWidth={2.5} />,
+  },
+  linkedin: {
+    label: "LINKEDIN",
+    color: "#22D3EE",
+    bg: "rgba(34,211,238,0.10)",
+    border: "rgba(34,211,238,0.2)",
+    icon: <Linkedin size={9} strokeWidth={2.5} />,
+  },
+  unknown: {
+    label: "SOURCE",
+    color: "#52525B",
+    bg: "rgba(255,255,255,0.03)",
+    border: "rgba(255,255,255,0.06)",
+    icon: <Globe size={9} strokeWidth={2.5} />,
+  },
+};
+
+function SourceBadge({ source, count }: { source: LeadSource; count: number }) {
+  if (count > 1) {
+    return (
+      <span
+        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider"
+        style={{
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          color: "#71717A",
+        }}
+      >
+        {count} SOURCES
+      </span>
+    );
+  }
+  const cfg = SOURCE_CONFIG[source] ?? SOURCE_CONFIG.unknown;
+  return (
+    <span
+      className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider"
+      style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.color }}
+    >
+      {cfg.icon}
+      {cfg.label}
+    </span>
+  );
+}
+
 function formatValue(v: number): string {
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
@@ -84,7 +154,7 @@ function formatValue(v: number): string {
 // ── Card ─────────────────────────────────────────────────────────────────────
 
 interface OpportunityCardProps {
-  opportunity: Opportunity;
+  opportunity: Opportunity | ScoutOpportunity;
   isSaved?: boolean;
   onClick: () => void;
   index?: number;
@@ -99,6 +169,11 @@ export default function OpportunityCard({
   const { project, company, relationship, matchReasons, score, priority, timing, suggestedAction } =
     opportunity;
   const p = PRIORITY[priority];
+
+  // Source info (only present on ScoutOpportunity)
+  const scoutOpp = opportunity as ScoutOpportunity;
+  const primarySource: LeadSource = scoutOpp.primarySource ?? "unknown";
+  const sourceCount = scoutOpp.sourceRecords?.length ?? 1;
 
   return (
     <button
@@ -117,23 +192,26 @@ export default function OpportunityCard({
       >
         {/* ── Top row ─── */}
         <div className="flex items-center justify-between mb-3">
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-            style={{
-              background: p.bg,
-              border: `1px solid ${p.border}`,
-            }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: p.dot }}
-            />
-            <span
-              className="text-[10px] font-bold tracking-wider"
-              style={{ color: p.color }}
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+              style={{
+                background: p.bg,
+                border: `1px solid ${p.border}`,
+              }}
             >
-              {p.label}
-            </span>
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: p.dot }}
+              />
+              <span
+                className="text-[10px] font-bold tracking-wider"
+                style={{ color: p.color }}
+              >
+                {p.label}
+              </span>
+            </div>
+            <SourceBadge source={primarySource} count={sourceCount} />
           </div>
 
           <div className="flex items-center gap-2">
