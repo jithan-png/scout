@@ -1,19 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ArrowUp, Copy, Check, Smartphone, MessageCircle } from "lucide-react";
-
-const SUGGESTIONS = [
-  "HVAC · Kelowna",
-  "Electrical · BC Interior",
-  "Framing · Okanagan",
-  "Plumbing · Penticton",
-  "Roofing · Vernon",
-];
+import { useState, useEffect, useRef } from "react";
+import { ArrowRight, Check, Copy, MessageCircle, Plus, Smartphone, X } from "lucide-react";
 
 const APP_URL = "buildmapper.app";
 
-// ── BuildMapper logo glyph ───────────────────────────────────────────────────
+const TRADE_OPTIONS = [
+  "Mechanical / HVAC", "Electrical", "Plumbing", "Framing / Structure",
+  "Roofing", "Concrete / Foundation", "Drywall / Insulation", "Windows & Doors",
+  "Painting & Finishing", "Fire Protection", "General Contracting", "Materials & Supply",
+];
+
+const LOCATION_SUGGESTIONS = [
+  "Kelowna", "Vancouver", "Calgary", "Edmonton",
+  "Victoria", "Kamloops", "Abbotsford", "Red Deer",
+];
+
+const SCAN_MESSAGES = [
+  { text: "Scanning live permits in your area...", color: "#60A5FA" },
+  { text: "Found recent permit activity matching your profile", color: "#F59E0B" },
+  { text: "Cross-referencing relationship signals...", color: "#A78BFA" },
+  { text: "Scoring each opportunity against your profile", color: "#00C875" },
+  { text: "Done — your leads are ready", color: "#00C875" },
+];
+
+type Phase = "landing" | "step1" | "step2" | "loading" | "payoff";
+
+// ── Shared logo ───────────────────────────────────────────────────────────────
 
 function BLogo({ size = 14 }: { size?: number }) {
   return (
@@ -24,177 +37,126 @@ function BLogo({ size = 14 }: { size?: number }) {
   );
 }
 
-// ── Phone mock phase screens ─────────────────────────────────────────────────
+// ── Phone mockup screens ──────────────────────────────────────────────────────
 
-function MockHome({ input }: { input: string }) {
+function PhoneSetup1({ selected }: { selected: string[] }) {
+  const preview = TRADE_OPTIONS.slice(0, 9);
   return (
-    <div className="flex flex-col h-full relative" style={{ background: "#09090B", padding: "28px 18px 18px" }}>
-      {/* Ambient glow */}
+    <div className="flex flex-col h-full" style={{ background: "#09090B", padding: "36px 14px 14px" }}>
       <div
         className="absolute inset-x-0 top-0 pointer-events-none"
-        style={{
-          height: "45%",
-          background: "radial-gradient(ellipse 80% 55% at 50% 0%, rgba(0,200,117,0.09) 0%, transparent 70%)",
-        }}
+        style={{ height: "40%", background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,200,117,0.08) 0%, transparent 70%)" }}
       />
-
-      {/* Logo row */}
-      <div className="flex items-center gap-1.5 mb-7 relative">
-        <div
-          className="w-6 h-6 rounded-[8px] flex items-center justify-center flex-shrink-0"
-          style={{
-            background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-            boxShadow: "0 0 12px rgba(0,200,117,0.3)",
-          }}
-        >
-          <BLogo size={11} />
-        </div>
-        <span className="text-[12px] font-bold" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
-          BuildMapper
-        </span>
-      </div>
-
-      {/* Headline */}
-      <div className="relative mb-5">
-        <h3
-          className="font-bold leading-tight mb-2"
-          style={{ fontSize: 20, letterSpacing: "-0.03em", color: "#F4F4F5" }}
-        >
-          Scout is watching
-          <br />
-          <span style={{ color: "#00C875" }}>your market.</span>
-        </h3>
-        <p className="text-[10px] leading-relaxed" style={{ color: "#71717A" }}>
-          Live permits · Your network · Who to call
-        </p>
-      </div>
-
-      {/* Input card */}
-      <div
-        className="rounded-[14px]"
-        style={{
-          background: "#1C1C22",
-          border: "1px solid rgba(0,200,117,0.35)",
-          boxShadow: "0 0 0 3px rgba(0,200,117,0.05), 0 0 20px rgba(0,200,117,0.1)",
-        }}
-      >
-        <div className="px-3 pt-3 pb-2">
-          <p className="text-[9px] mb-1.5" style={{ color: "#52525B" }}>
-            What do you sell? e.g. Mechanical, Electrical
-          </p>
-          <p className="text-[11px] font-medium" style={{ color: "#F4F4F5", minHeight: 16 }}>
-            {input || "\u00A0"}
-          </p>
-        </div>
-        <div className="flex items-center justify-between px-3 pb-3">
-          <span className="text-[9px]" style={{ color: "#3F3F46" }}>
-            HVAC · Kelowna
-          </span>
-          <div
-            className="rounded-full flex items-center justify-center"
-            style={{
-              width: 24,
-              height: 24,
-              background: input
-                ? "linear-gradient(135deg, #00C875 0%, #00A860 100%)"
-                : "rgba(255,255,255,0.05)",
-              boxShadow: input ? "0 0 10px rgba(0,200,117,0.3)" : "none",
-            }}
-          >
-            <ArrowUp size={10} color={input ? "white" : "#3F3F46"} strokeWidth={2.5} />
-          </div>
-        </div>
-      </div>
-
-      {/* Chips */}
-      <div className="flex gap-1.5 mt-3 flex-wrap">
-        {["HVAC · Kelowna", "Electrical", "Framing"].map((c) => (
-          <span
-            key={c}
-            className="px-2 py-1 rounded-full text-[9px] font-medium"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              color: "#A1A1AA",
-              border: "1px solid rgba(255,255,255,0.07)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {c}
-          </span>
-        ))}
+      <p className="text-[9px] font-semibold uppercase tracking-widest mb-1 relative" style={{ color: "#52525B" }}>
+        Step 1 of 2
+      </p>
+      <p className="text-[15px] font-bold mb-3 relative" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
+        What do you sell?
+      </p>
+      <div className="flex flex-wrap gap-1.5 relative">
+        {preview.map((opt) => {
+          const isSelected = selected.includes(opt);
+          return (
+            <span
+              key={opt}
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-medium"
+              style={{
+                background: isSelected ? "rgba(0,200,117,0.12)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${isSelected ? "rgba(0,200,117,0.3)" : "rgba(255,255,255,0.08)"}`,
+                color: isSelected ? "#34D399" : "#71717A",
+              }}
+            >
+              {isSelected && <Check size={6} strokeWidth={3} />}
+              {opt}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function MockWorking() {
+function PhoneSetup2({ locations }: { locations: string[] }) {
   return (
-    <div
-      className="flex flex-col h-full items-center justify-center gap-5 relative"
-      style={{ background: "#09090B" }}
-    >
+    <div className="flex flex-col h-full" style={{ background: "#09090B", padding: "36px 14px 14px" }}>
+      <div
+        className="absolute inset-x-0 top-0 pointer-events-none"
+        style={{ height: "40%", background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,200,117,0.08) 0%, transparent 70%)" }}
+      />
+      <p className="text-[9px] font-semibold uppercase tracking-widest mb-1 relative" style={{ color: "#52525B" }}>
+        Step 2 of 2
+      </p>
+      <p className="text-[15px] font-bold mb-3 relative" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
+        Where do you work?
+      </p>
+      <div
+        className="rounded-xl p-2.5 relative"
+        style={{
+          background: "#1C1C22",
+          border: `1px solid ${locations.length > 0 ? "rgba(0,200,117,0.3)" : "rgba(255,255,255,0.09)"}`,
+        }}
+      >
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {locations.map((loc) => (
+            <span
+              key={loc}
+              className="px-2 py-0.5 rounded-full text-[8px] font-medium"
+              style={{ background: "rgba(0,200,117,0.12)", border: "1px solid rgba(0,200,117,0.25)", color: "#34D399" }}
+            >
+              {loc}
+            </span>
+          ))}
+        </div>
+        <p className="text-[9px]" style={{ color: locations.length > 0 ? "#3F3F46" : "#52525B" }}>
+          {locations.length > 0 ? "Add another city..." : "e.g. Calgary, Phoenix, Ontario..."}
+        </p>
+      </div>
+      {locations.length === 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {["Kelowna", "Calgary", "Vancouver"].map((c) => (
+            <span
+              key={c}
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-medium"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "#71717A" }}
+            >
+              <Plus size={7} strokeWidth={2.5} />{c}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PhoneWorking() {
+  return (
+    <div className="flex flex-col h-full items-center justify-center gap-4 relative" style={{ background: "#09090B" }}>
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 45%, rgba(0,200,117,0.07) 0%, transparent 70%)",
-        }}
+        style={{ background: "radial-gradient(ellipse 80% 60% at 50% 45%, rgba(0,200,117,0.08) 0%, transparent 70%)" }}
       />
-
-      {/* Orb with rings */}
       <div className="relative flex items-center justify-center">
-        <div
-          className="absolute rounded-full"
-          style={{
-            width: 100,
-            height: 100,
-            background: "rgba(0,200,117,0.05)",
-            border: "1px solid rgba(0,200,117,0.12)",
-            animation: "ringPulse 2.8s ease-in-out infinite",
-          }}
-        />
-        <div
-          className="absolute rounded-full"
-          style={{
-            width: 68,
-            height: 68,
-            background: "rgba(0,200,117,0.07)",
+        {[100, 68].map((size, i) => (
+          <div key={size} className="absolute rounded-full" style={{
+            width: size, height: size,
             border: "1px solid rgba(0,200,117,0.18)",
-            animation: "ringPulse 2.8s ease-in-out 0.5s infinite",
-          }}
-        />
-        <div
-          className="rounded-full flex items-center justify-center relative z-10"
-          style={{
-            width: 44,
-            height: 44,
-            background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-            boxShadow: "0 0 24px rgba(0,200,117,0.45)",
-            animation: "orbPulse 2.4s ease-in-out infinite",
-          }}
-        >
+            animation: `ringPulse 2.8s ease-in-out ${i * 0.5}s infinite`,
+          }} />
+        ))}
+        <div className="rounded-full flex items-center justify-center relative z-10" style={{
+          width: 44, height: 44,
+          background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+          boxShadow: "0 0 24px rgba(0,200,117,0.45)",
+          animation: "orbPulse 2.4s ease-in-out infinite",
+        }}>
           <BLogo size={16} />
         </div>
       </div>
-
-      {/* Messages */}
-      <div className="flex flex-col items-center gap-1 relative">
-        <p className="text-[12px] font-semibold" style={{ color: "#F4F4F5" }}>
-          Scout is searching
-        </p>
-        <p className="text-[10px]" style={{ color: "#52525B" }}>
-          Scanning live permits...
-        </p>
-        <div className="flex gap-1 mt-2">
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-[11px] font-semibold" style={{ color: "#F4F4F5" }}>Scout is searching</p>
+        <div className="flex gap-1 mt-1">
           {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-1 h-1 rounded-full"
-              style={{
-                background: "#00C875",
-                animation: `typing 1.4s ease ${i * 0.2}s infinite`,
-              }}
-            />
+            <div key={i} className="w-1 h-1 rounded-full" style={{ background: "#00C875", animation: `typing 1.4s ease ${i * 0.2}s infinite` }} />
           ))}
         </div>
       </div>
@@ -202,230 +164,99 @@ function MockWorking() {
   );
 }
 
-function MockDone() {
+function PhonePayoff({ trades, locations }: { trades: string[]; locations: string[] }) {
+  const leadCount = Math.min(3 + trades.length + locations.length, 12);
+  const hotCount = Math.max(2, Math.floor(leadCount * 0.4));
   return (
-    <div className="flex flex-col h-full" style={{ background: "#09090B", padding: "22px 18px 18px" }}>
+    <div className="flex flex-col h-full relative" style={{ background: "#09090B", padding: "22px 14px 14px" }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1.5">
-          <div
-            className="rounded-[7px] flex items-center justify-center"
-            style={{
-              width: 20,
-              height: 20,
-              background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-            }}
-          >
-            <BLogo size={10} />
+          <div className="rounded-[7px] flex items-center justify-center" style={{ width: 18, height: 18, background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)" }}>
+            <BLogo size={9} />
           </div>
-          <span
-            className="text-[11px] font-bold"
-            style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}
-          >
-            BuildMapper
-          </span>
+          <span className="text-[10px] font-bold" style={{ color: "#F4F4F5" }}>BuildMapper</span>
         </div>
-        <div
-          className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-          style={{
-            background: "rgba(0,200,117,0.1)",
-            border: "1px solid rgba(0,200,117,0.2)",
-          }}
-        >
+        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: "rgba(0,200,117,0.1)", border: "1px solid rgba(0,200,117,0.2)" }}>
           <span className="w-1 h-1 rounded-full" style={{ background: "#00C875" }} />
-          <span className="text-[8px] font-semibold" style={{ color: "#34D399" }}>
-            Live
-          </span>
+          <span className="text-[7px] font-semibold" style={{ color: "#34D399" }}>Live</span>
         </div>
       </div>
-
       {/* Count */}
-      <div className="mb-4">
+      <div className="mb-3">
         <div className="flex items-baseline gap-2">
-          <span
-            className="font-bold leading-none"
-            style={{
-              fontSize: 40,
-              letterSpacing: "-0.04em",
-              background: "linear-gradient(135deg, #F4F4F5 60%, #A1A1AA 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            5
-          </span>
+          <span className="font-bold leading-none" style={{
+            fontSize: 36, letterSpacing: "-0.04em",
+            background: "linear-gradient(135deg, #F4F4F5 60%, #A1A1AA 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+          }}>{leadCount}</span>
           <div>
-            <p className="text-[13px] font-semibold" style={{ color: "#F4F4F5" }}>
-              leads found
-            </p>
-            <p className="text-[9px]" style={{ color: "#52525B" }}>
-              3 hot · 1 warm · 1 to watch
-            </p>
+            <p className="text-[11px] font-semibold" style={{ color: "#F4F4F5" }}>leads found</p>
+            <p className="text-[8px]" style={{ color: "#52525B" }}>{hotCount} hot · {leadCount - hotCount} more</p>
           </div>
         </div>
       </div>
-
-      {/* Top lead card */}
-      <div
-        className="rounded-[12px] p-3 mb-3"
-        style={{
+      {/* Blurred lead cards */}
+      {[1, 2].map((i) => (
+        <div key={i} className="rounded-xl p-2.5 mb-2" style={{
           background: "#141418",
           border: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <span
-            className="text-[8px] font-bold px-1.5 py-0.5 rounded-full"
-            style={{
-              background: "rgba(239,68,68,0.12)",
-              color: "#EF4444",
-              letterSpacing: "0.03em",
-            }}
-          >
-            HOT
-          </span>
-          <span className="text-[8px]" style={{ color: "#52525B" }}>
-            2 days ago
-          </span>
+          filter: "blur(3px)",
+          opacity: i === 2 ? 0.5 : 0.85,
+        }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[7px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.12)", color: "#EF4444" }}>HOT</span>
+            <span className="text-[7px]" style={{ color: "#52525B" }}>2 days ago</span>
+          </div>
+          <div className="h-2 rounded mb-1" style={{ background: "rgba(255,255,255,0.08)", width: "75%" }} />
+          <div className="h-1.5 rounded" style={{ background: "rgba(255,255,255,0.05)", width: "50%" }} />
         </div>
-        <p className="text-[10px] font-semibold leading-tight mb-1" style={{ color: "#F4F4F5" }}>
-          West Kelowna Townhomes Ph.2
-        </p>
-        <p className="text-[9px] mb-2" style={{ color: "#52525B" }}>
-          Gellatly Homes · $3.2M
-        </p>
-        <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "#00C875" }} />
-          <span className="text-[9px]" style={{ color: "#34D399" }}>
-            You&apos;ve worked with them before
-          </span>
-        </div>
-      </div>
-
-      {/* CTA */}
-      <button
-        className="w-full py-2.5 rounded-xl text-[11px] font-semibold"
-        style={{
+      ))}
+      {/* Lock overlay */}
+      <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end pb-4" style={{
+        top: 120,
+        background: "linear-gradient(to bottom, transparent 0%, rgba(9,9,11,0.95) 40%)",
+      }}>
+        <div className="flex items-center justify-center rounded-full mb-2" style={{
+          width: 32, height: 32,
           background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-          color: "#fff",
-        }}
-      >
-        View all 5 leads →
-      </button>
+          boxShadow: "0 0 16px rgba(0,200,117,0.4)",
+        }}>
+          <Smartphone size={14} color="white" strokeWidth={2.5} />
+        </div>
+        <p className="text-[9px] font-semibold text-center" style={{ color: "#F4F4F5" }}>Open on mobile</p>
+        <p className="text-[8px] text-center mt-0.5" style={{ color: "#52525B" }}>to see your leads</p>
+      </div>
     </div>
   );
 }
 
-// ── Phone frame with cycling phases ─────────────────────────────────────────
+// ── Phone frame ───────────────────────────────────────────────────────────────
 
-type PhaseKey = "home" | "working" | "done";
-
-const PHASES: { key: PhaseKey; duration: number }[] = [
-  { key: "home", duration: 3500 },
-  { key: "working", duration: 4200 },
-  { key: "done", duration: 5000 },
-];
-
-function PhoneMockup() {
-  const [phaseIndex, setPhaseIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-  const [typedInput, setTypedInput] = useState("");
-
-  const fullText = "HVAC · Kelowna";
-
-  // Typewriter effect for home phase
-  useEffect(() => {
-    if (phaseIndex !== 0) {
-      setTypedInput("");
-      return;
-    }
-    setTypedInput("");
-    let i = 0;
-    // Small delay before typing starts
-    const startDelay = setTimeout(() => {
-      const interval = setInterval(() => {
-        i++;
-        setTypedInput(fullText.slice(0, i));
-        if (i >= fullText.length) clearInterval(interval);
-      }, 65);
-      return () => clearInterval(interval);
-    }, 600);
-    return () => clearTimeout(startDelay);
-  }, [phaseIndex]);
-
-  // Phase cycling with fade
-  useEffect(() => {
-    const phase = PHASES[phaseIndex];
-    const fadeOut = setTimeout(() => setVisible(false), phase.duration - 400);
-    const advance = setTimeout(() => {
-      setPhaseIndex((i) => (i + 1) % PHASES.length);
-      setVisible(true);
-    }, phase.duration);
-    return () => {
-      clearTimeout(fadeOut);
-      clearTimeout(advance);
-    };
-  }, [phaseIndex]);
-
-  const currentPhase = PHASES[phaseIndex].key;
-
+function PhoneFrame({ phase, trades, locations }: {
+  phase: Phase;
+  trades: string[];
+  locations: string[];
+}) {
   return (
-    <div
-      style={{
-        width: 270,
-        height: 552,
-        borderRadius: 44,
-        background: "#1C1C1E",
-        boxShadow:
-          "0 0 0 1px rgba(255,255,255,0.1), 0 40px 80px rgba(0,0,0,0.7), 0 0 60px rgba(0,200,117,0.07)",
-        padding: 8,
-        position: "relative",
-        flexShrink: 0,
-      }}
-    >
-      {/* Screen */}
-      <div
-        style={{
-          borderRadius: 38,
-          width: "100%",
-          height: "100%",
-          background: "#09090B",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
+    <div style={{
+      width: 270, height: 552, borderRadius: 44,
+      background: "#1C1C1E",
+      boxShadow: "0 0 0 1px rgba(255,255,255,0.1), 0 40px 80px rgba(0,0,0,0.7), 0 0 60px rgba(0,200,117,0.07)",
+      padding: 8, position: "relative", flexShrink: 0,
+    }}>
+      <div style={{ borderRadius: 38, width: "100%", height: "100%", background: "#09090B", overflow: "hidden", position: "relative" }}>
         {/* Dynamic Island */}
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: 100,
-            height: 26,
-            borderRadius: 20,
-            background: "#000",
-            zIndex: 20,
-          }}
-        />
-
-        {/* Phase content */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            opacity: visible ? 1 : 0,
-            transition: "opacity 400ms ease",
-          }}
-        >
-          {currentPhase === "home" && <MockHome input={typedInput} />}
-          {currentPhase === "working" && <MockWorking />}
-          {currentPhase === "done" && <MockDone />}
+        <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", width: 100, height: 26, borderRadius: 20, background: "#000", zIndex: 20 }} />
+        <div style={{ position: "absolute", inset: 0 }}>
+          {phase === "landing"  && <PhoneSetup1 selected={[]} />}
+          {phase === "step1"    && <PhoneSetup1 selected={trades} />}
+          {phase === "step2"    && <PhoneSetup2 locations={locations} />}
+          {phase === "loading"  && <PhoneWorking />}
+          {phase === "payoff"   && <PhonePayoff trades={trades} locations={locations} />}
         </div>
       </div>
-
-      {/* Physical side buttons */}
+      {/* Side buttons */}
       <div style={{ position: "absolute", width: 3, height: 28, borderRadius: 2, background: "#2C2C2E", left: -3, top: 82 }} />
       <div style={{ position: "absolute", width: 3, height: 28, borderRadius: 2, background: "#2C2C2E", left: -3, top: 118 }} />
       <div style={{ position: "absolute", width: 3, height: 52, borderRadius: 2, background: "#2C2C2E", right: -3, top: 100 }} />
@@ -433,201 +264,410 @@ function PhoneMockup() {
   );
 }
 
-// ── Main desktop overlay ─────────────────────────────────────────────────────
+// ── Step indicator ────────────────────────────────────────────────────────────
+
+function StepDots({ phase }: { phase: Phase }) {
+  const steps: Phase[] = ["step1", "step2", "loading", "payoff"];
+  const current = steps.indexOf(phase);
+  if (current < 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 mb-8">
+      {steps.slice(0, 2).map((_, i) => (
+        <div key={i} className="rounded-full transition-all duration-500" style={{
+          height: 3,
+          width: i === current ? 24 : 12,
+          background: i < current ? "rgba(0,200,117,0.5)" : i === current ? "#00C875" : "rgba(255,255,255,0.1)",
+        }} />
+      ))}
+      <span className="text-[11px] font-medium ml-1" style={{ color: "#52525B" }}>
+        {current === 0 ? "Step 1 of 2" : current === 1 ? "Step 2 of 2" : ""}
+      </span>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function DesktopLanding() {
-  const [input, setInput] = useState("");
-  const [showMobilePrompt, setShowMobilePrompt] = useState(false);
+  const [phase, setPhase] = useState<Phase>("landing");
+  const [trades, setTrades] = useState<string[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [locationInput, setLocationInput] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const [scanMessages, setScanMessages] = useState<number[]>([]);
   const [copied, setCopied] = useState(false);
+  const locationInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = () => {
-    if (!input.trim()) return;
-    setShowMobilePrompt(true);
+  // Loading sequence
+  useEffect(() => {
+    if (phase !== "loading") return;
+    setScanMessages([]);
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    SCAN_MESSAGES.forEach((_, i) => {
+      timeouts.push(setTimeout(() => setScanMessages((prev) => [...prev, i]), i * 900 + 400));
+    });
+    // Advance to payoff after all messages
+    timeouts.push(setTimeout(() => setPhase("payoff"), SCAN_MESSAGES.length * 900 + 1200));
+    return () => timeouts.forEach(clearTimeout);
+  }, [phase]);
+
+  const toggleTrade = (t: string) =>
+    setTrades((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+
+  const addLocation = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (locations.map((l) => l.toLowerCase()).includes(trimmed.toLowerCase())) {
+      setLocationError("Already added");
+      setTimeout(() => setLocationError(""), 1800);
+      setLocationInput("");
+      return;
+    }
+    setLocations((prev) => [...prev, trimmed]);
+    setLocationInput("");
+    setLocationError("");
+  };
+
+  const removeLocation = (loc: string) => setLocations((prev) => prev.filter((l) => l !== loc));
+
+  const handleLocationKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addLocation(locationInput); }
+    if (e.key === "Backspace" && !locationInput && locations.length > 0)
+      removeLocation(locations[locations.length - 1]);
   };
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(APP_URL);
-    } catch {
-      // fallback: select a temp input
-    }
+    try { await navigator.clipboard.writeText(APP_URL); } catch {}
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSMS = () => {
-    window.open(`sms:?body=Check out BuildMapper — ${APP_URL}`);
-  };
+  const handleSMS = () => window.open(`sms:?body=Check out BuildMapper Scout — ${APP_URL}`);
+
+  const unusedSuggestions = LOCATION_SUGGESTIONS.filter(
+    (s) => !locations.map((l) => l.toLowerCase()).includes(s.toLowerCase())
+  );
+
+  const leadCount = Math.min(3 + trades.length + locations.length, 12);
+  const hotCount = Math.max(2, Math.floor(leadCount * 0.4));
 
   return (
-    <div
-      className="hidden md:flex fixed inset-0 z-50"
-      style={{ background: "#09090B" }}
-    >
+    <div className="hidden md:flex fixed inset-0 z-50" style={{ background: "#09090B" }}>
       {/* Background glows */}
       <div className="absolute inset-0 pointer-events-none">
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 55% 55% at 15% 50%, rgba(0,200,117,0.05) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 45% 55% at 85% 50%, rgba(0,200,117,0.03) 0%, transparent 70%)",
-          }}
-        />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 55% 55% at 15% 50%, rgba(0,200,117,0.05) 0%, transparent 70%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 45% 55% at 85% 50%, rgba(0,200,117,0.03) 0%, transparent 70%)" }} />
       </div>
 
-      {/* ── Left column ────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col justify-center flex-1 px-14 xl:px-20" style={{ maxWidth: 640 }}>
-        {/* Logo */}
-        <div className="flex items-center gap-3 mb-10 animate-fade-up" style={{ animationDelay: "0ms" }}>
-          <div
-            className="rounded-[14px] flex items-center justify-center flex-shrink-0"
-            style={{
-              width: 36,
-              height: 36,
-              background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-              boxShadow: "0 0 20px rgba(0,200,117,0.35)",
-            }}
-          >
+      {/* ── Left column ─────────────────────────────────────────────── */}
+      <div className="relative z-10 flex flex-col justify-center flex-1 px-14 xl:px-20 overflow-y-auto py-12" style={{ maxWidth: 640 }}>
+
+        {/* Logo — always visible */}
+        <div className="flex items-center gap-3 mb-10">
+          <div className="rounded-[14px] flex items-center justify-center flex-shrink-0" style={{
+            width: 36, height: 36,
+            background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+            boxShadow: "0 0 20px rgba(0,200,117,0.35)",
+          }}>
             <BLogo size={18} />
           </div>
-          <span
-            className="text-[20px] font-bold"
-            style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}
-          >
+          <span className="text-[20px] font-bold" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
             BuildMapper
           </span>
         </div>
 
-        {/* Headline */}
-        <div className="mb-8 animate-fade-up" style={{ animationDelay: "80ms" }}>
-          <h1
-            className="font-bold leading-[1.1] mb-4"
-            style={{
-              fontSize: "clamp(40px, 4vw, 56px)",
-              letterSpacing: "-0.035em",
-              color: "#F4F4F5",
-            }}
-          >
-            Scout is watching
-            <br />
-            <span style={{ color: "#00C875" }}>your market.</span>
-          </h1>
-          <p
-            className="text-[17px] leading-relaxed"
-            style={{ color: "#71717A", maxWidth: 420 }}
-          >
-            It scans live permits, maps your relationships, and tells you exactly who to call.
-          </p>
-        </div>
+        {/* ── LANDING ── */}
+        {phase === "landing" && (
+          <div className="animate-fade-up">
+            <h1 className="font-bold leading-[1.1] mb-4" style={{
+              fontSize: "clamp(38px, 3.8vw, 54px)",
+              letterSpacing: "-0.035em", color: "#F4F4F5",
+            }}>
+              Scout is watching<br />
+              <span style={{ color: "#00C875" }}>your market.</span>
+            </h1>
+            <p className="text-[17px] leading-relaxed mb-10" style={{ color: "#71717A", maxWidth: 420 }}>
+              It scans live permits, maps your relationships, and tells you exactly who to call.
+            </p>
+            <button
+              onClick={() => setPhase("step1")}
+              className="pressable flex items-center gap-3 px-7 py-4 rounded-2xl text-[16px] font-semibold transition-all duration-200 mb-4"
+              style={{
+                background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                color: "#fff",
+                boxShadow: "0 0 32px rgba(0,200,117,0.3)",
+              }}
+            >
+              Find my leads
+              <ArrowRight size={18} strokeWidth={2.5} />
+            </button>
+            <p className="text-[13px]" style={{ color: "#3F3F46" }}>
+              Takes 30 seconds · No account needed
+            </p>
+          </div>
+        )}
 
-        {!showMobilePrompt ? (
-          <>
-            {/* Search input */}
-            <div className="mb-4 animate-fade-up" style={{ animationDelay: "160ms" }}>
-              <div
-                className="relative rounded-2xl"
-                style={{
-                  background: "#1C1C22",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  boxShadow:
-                    "0 2px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
-                }}
-              >
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmit();
-                  }}
-                  placeholder="What do you sell? e.g. Mechanical, Electrical, Framing"
-                  className="w-full px-5 pt-4 pb-3 text-[15px] leading-relaxed bg-transparent"
-                  style={{ color: "#F4F4F5", outline: "none", caretColor: "#00C875" }}
-                />
-                <div className="flex items-center justify-between px-5 pb-4">
-                  <span className="text-[12px]" style={{ color: "#3F3F46" }}>
-                    {input ? "Enter to search" : "e.g. HVAC · Kelowna"}
-                  </span>
+        {/* ── STEP 1: What do you sell ── */}
+        {phase === "step1" && (
+          <div key="step1" className="animate-fade-up">
+            <StepDots phase="step1" />
+            <h2 className="font-bold leading-tight mb-2" style={{ fontSize: "clamp(28px, 3vw, 40px)", letterSpacing: "-0.03em", color: "#F4F4F5" }}>
+              What do you sell?
+            </h2>
+            <p className="text-[15px] mb-2" style={{ color: "#71717A" }}>
+              Scout matches live permits to your trade.
+            </p>
+            {trades.length > 0 && (
+              <p className="text-[13px] font-semibold mb-6" style={{ color: "#00C875" }}>
+                {trades.length} selected
+              </p>
+            )}
+            {trades.length === 0 && <div className="mb-6" />}
+            <div className="flex flex-wrap gap-2 mb-8">
+              {TRADE_OPTIONS.map((opt) => {
+                const selected = trades.includes(opt);
+                return (
                   <button
-                    onClick={handleSubmit}
-                    disabled={!input.trim()}
-                    className="flex items-center justify-center rounded-full transition-all duration-200"
-                    style={{
-                      width: 34,
-                      height: 34,
-                      background: input.trim()
-                        ? "linear-gradient(135deg, #00C875 0%, #00A860 100%)"
-                        : "rgba(255,255,255,0.05)",
-                      boxShadow: input.trim()
-                        ? "0 0 14px rgba(0,200,117,0.35)"
-                        : "none",
-                      color: input.trim() ? "#fff" : "#3F3F46",
+                    key={opt}
+                    onClick={() => toggleTrade(opt)}
+                    className="pressable flex items-center gap-2 px-4 py-2.5 rounded-full text-[14px] font-medium transition-all duration-150"
+                    style={selected ? {
+                      background: "rgba(0,200,117,0.12)",
+                      border: "1px solid rgba(0,200,117,0.3)",
+                      color: "#34D399", fontWeight: 600,
+                    } : {
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      color: "#A1A1AA",
                     }}
                   >
-                    <ArrowUp size={15} strokeWidth={2.5} />
+                    {selected && (
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#00C875" }}>
+                        <Check size={9} color="white" strokeWidth={3} />
+                      </span>
+                    )}
+                    {opt}
                   </button>
-                </div>
-              </div>
+                );
+              })}
             </div>
-
-            {/* Suggestion chips */}
-            <div
-              className="flex flex-wrap gap-2 mb-10 animate-fade-up"
-              style={{ animationDelay: "240ms" }}
+            <button
+              onClick={() => trades.length > 0 && setPhase("step2")}
+              disabled={trades.length === 0}
+              className="pressable flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all duration-300"
+              style={trades.length > 0 ? {
+                background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                color: "#fff", boxShadow: "0 0 24px rgba(0,200,117,0.28)",
+              } : {
+                background: "rgba(255,255,255,0.04)",
+                color: "#3F3F46", border: "1px solid rgba(255,255,255,0.06)",
+              }}
             >
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => {
-                    setInput(s);
-                    setShowMobilePrompt(true);
-                  }}
-                  className="px-3.5 py-2 rounded-full text-[13px] font-medium transition-all duration-200"
-                  style={{
-                    background: "rgba(255,255,255,0.05)",
-                    color: "#A1A1AA",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+              Next
+              {trades.length > 0 && <ArrowRight size={16} strokeWidth={2.5} />}
+            </button>
+          </div>
+        )}
 
-            {/* Best on mobile divider + URL row */}
-            <div className="animate-fade-up" style={{ animationDelay: "320ms" }}>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
-                <span className="text-[11px] font-medium" style={{ color: "#52525B" }}>
-                  Best on mobile
-                </span>
-                <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+        {/* ── STEP 2: Where do you work ── */}
+        {phase === "step2" && (
+          <div key="step2" className="animate-fade-up">
+            <StepDots phase="step2" />
+            <h2 className="font-bold leading-tight mb-2" style={{ fontSize: "clamp(28px, 3vw, 40px)", letterSpacing: "-0.03em", color: "#F4F4F5" }}>
+              Where do you work?
+            </h2>
+            <p className="text-[15px] mb-6" style={{ color: "#71717A" }}>
+              Add any city, region, or province — anywhere in North America.
+            </p>
+
+            {/* Tag input */}
+            <div
+              className="rounded-2xl p-4 mb-3 cursor-text transition-all duration-200"
+              style={{
+                background: "#1C1C22",
+                border: `1px solid ${locationError ? "rgba(239,68,68,0.4)" : locations.length > 0 ? "rgba(0,200,117,0.3)" : "rgba(255,255,255,0.09)"}`,
+              }}
+              onClick={() => locationInputRef.current?.focus()}
+            >
+              <div className="flex flex-wrap gap-2 mb-2">
+                {locations.map((loc) => (
+                  <span
+                    key={loc}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium"
+                    style={{ background: "rgba(0,200,117,0.12)", border: "1px solid rgba(0,200,117,0.25)", color: "#34D399" }}
+                  >
+                    {loc}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeLocation(loc); }}
+                      style={{ color: "#34D399", opacity: 0.7, lineHeight: 1 }}
+                    >
+                      <X size={11} strokeWidth={2.5} />
+                    </button>
+                  </span>
+                ))}
               </div>
               <div className="flex items-center gap-2">
-                <div
-                  className="flex items-center gap-2 flex-1 px-4 py-3 rounded-xl"
-                  style={{
-                    background: "#1C1C22",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                  }}
-                >
+                <input
+                  ref={locationInputRef}
+                  type="text"
+                  value={locationInput}
+                  onChange={(e) => { setLocationInput(e.target.value); setLocationError(""); }}
+                  onKeyDown={handleLocationKey}
+                  placeholder={locations.length === 0 ? "e.g. Calgary, Phoenix, Ontario..." : "Add another..."}
+                  className="flex-1 text-[15px] bg-transparent outline-none"
+                  style={{ color: "#F4F4F5", caretColor: "#00C875" }}
+                />
+                {locationInput.trim() && (
+                  <button
+                    onClick={() => addLocation(locationInput)}
+                    className="pressable flex items-center justify-center rounded-full flex-shrink-0"
+                    style={{ width: 30, height: 30, background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)" }}
+                  >
+                    <Plus size={15} color="white" strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+              {locationError && (
+                <p className="text-[12px] mt-2" style={{ color: "#EF4444" }}>{locationError}</p>
+              )}
+            </div>
+            <p className="text-[12px] mb-6" style={{ color: "#3F3F46" }}>
+              Press Enter or tap + to add · Backspace removes last
+            </p>
+
+            {/* Quick-add suggestions */}
+            {unusedSuggestions.length > 0 && (
+              <div className="mb-8">
+                <p className="text-[11px] font-semibold uppercase tracking-widest mb-3" style={{ color: "#3F3F46" }}>
+                  Quick add
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {unusedSuggestions.map((city) => (
+                    <button
+                      key={city}
+                      onClick={() => addLocation(city)}
+                      className="pressable flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-medium transition-all duration-150"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#71717A" }}
+                    >
+                      <Plus size={11} strokeWidth={2.5} />
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => locations.length > 0 && setPhase("loading")}
+              disabled={locations.length === 0}
+              className="pressable flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all duration-300"
+              style={locations.length > 0 ? {
+                background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                color: "#fff", boxShadow: "0 0 24px rgba(0,200,117,0.28)",
+              } : {
+                background: "rgba(255,255,255,0.04)",
+                color: "#3F3F46", border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              Find my leads
+              {locations.length > 0 && <ArrowRight size={16} strokeWidth={2.5} />}
+            </button>
+          </div>
+        )}
+
+        {/* ── LOADING ── */}
+        {phase === "loading" && (
+          <div key="loading" className="animate-fade-up">
+            <div className="flex items-center gap-4 mb-10">
+              <div className="relative flex items-center justify-center flex-shrink-0">
+                {[56, 40].map((size, i) => (
+                  <div key={size} className="absolute rounded-full" style={{
+                    width: size, height: size,
+                    border: "1px solid rgba(0,200,117,0.2)",
+                    animation: `ringPulse 2.8s ease-in-out ${i * 0.5}s infinite`,
+                  }} />
+                ))}
+                <div className="rounded-full flex items-center justify-center relative z-10" style={{
+                  width: 28, height: 28,
+                  background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                  boxShadow: "0 0 16px rgba(0,200,117,0.4)",
+                  animation: "orbPulse 2.4s ease-in-out infinite",
+                }}>
+                  <BLogo size={12} />
+                </div>
+              </div>
+              <div>
+                <p className="text-[22px] font-bold" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
+                  Scout is searching
+                </p>
+                <p className="text-[14px]" style={{ color: "#52525B" }}>
+                  {trades.slice(0, 2).join(", ")} · {locations.slice(0, 2).join(", ")}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {SCAN_MESSAGES.map((msg, i) => (
+                scanMessages.includes(i) && (
+                  <div key={i} className="flex items-center gap-3 animate-status-enter">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: msg.color }} />
+                    <p className="text-[15px]" style={{ color: i === SCAN_MESSAGES.length - 1 ? "#F4F4F5" : "#A1A1AA", fontWeight: i === SCAN_MESSAGES.length - 1 ? 600 : 400 }}>
+                      {msg.text}
+                    </p>
+                  </div>
+                )
+              ))}
+              {scanMessages.length < SCAN_MESSAGES.length && (
+                <div className="flex items-center gap-3 animate-fade-in">
+                  <div className="flex gap-1 ml-0.5">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: "#52525B", animation: `typing 1.4s ease ${i * 0.2}s infinite` }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── PAYOFF ── */}
+        {phase === "payoff" && (
+          <div key="payoff" className="animate-fade-up">
+            {/* Result headline */}
+            <div className="flex items-baseline gap-3 mb-2">
+              <span className="font-bold leading-none" style={{
+                fontSize: 72, letterSpacing: "-0.04em",
+                background: "linear-gradient(135deg, #F4F4F5 60%, #A1A1AA 100%)",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+              }}>
+                {leadCount}
+              </span>
+              <div>
+                <p className="text-[22px] font-bold" style={{ color: "#F4F4F5" }}>leads found</p>
+                <p className="text-[14px]" style={{ color: "#52525B" }}>
+                  {hotCount} hot · {leadCount - hotCount} more in {locations[0] || "your area"}
+                </p>
+              </div>
+            </div>
+            <p className="text-[15px] mb-8" style={{ color: "#71717A" }}>
+              Your results are ready — open Scout on your phone to see them.
+            </p>
+
+            {/* Mobile handoff card */}
+            <div className="rounded-2xl p-6 mb-4" style={{
+              background: "#1C1C22",
+              border: "1px solid rgba(0,200,117,0.15)",
+              boxShadow: "0 0 40px rgba(0,200,117,0.06)",
+            }}>
+              {/* URL row */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 flex-1 px-4 py-3 rounded-xl" style={{ background: "#141418", border: "1px solid rgba(255,255,255,0.06)" }}>
                   <Smartphone size={14} style={{ color: "#52525B", flexShrink: 0 }} />
-                  <span className="text-[13px] font-mono" style={{ color: "#71717A" }}>
-                    {APP_URL}
-                  </span>
+                  <span className="text-[14px] font-mono" style={{ color: "#71717A" }}>{APP_URL}</span>
                 </div>
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-2 px-4 py-3 rounded-xl text-[13px] font-semibold transition-all duration-200"
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl text-[14px] font-semibold transition-all duration-200"
                   style={{
                     background: copied ? "rgba(0,200,117,0.1)" : "rgba(255,255,255,0.05)",
                     color: copied ? "#34D399" : "#A1A1AA",
@@ -638,119 +678,45 @@ export default function DesktopLanding() {
                   {copied ? "Copied!" : "Copy"}
                 </button>
               </div>
-            </div>
-          </>
-        ) : (
-          /* Mobile prompt state */
-          <div className="animate-fade-up">
-            <div
-              className="p-6 rounded-2xl mb-4"
-              style={{
-                background: "#1C1C22",
-                border: "1px solid rgba(0,200,117,0.15)",
-                boxShadow: "0 0 40px rgba(0,200,117,0.05)",
-              }}
-            >
-              <div className="flex items-center gap-3 mb-5">
-                <div
-                  className="rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{
-                    width: 36,
-                    height: 36,
-                    background: "rgba(0,200,117,0.1)",
-                    border: "1px solid rgba(0,200,117,0.2)",
-                  }}
-                >
-                  <Smartphone size={16} style={{ color: "#00C875" }} />
-                </div>
-                <div>
-                  <p className="text-[15px] font-semibold" style={{ color: "#F4F4F5" }}>
-                    Open on your phone
-                  </p>
-                  <p className="text-[12px]" style={{ color: "#52525B" }}>
-                    Scout works best as a mobile experience
-                  </p>
-                </div>
-              </div>
-
-              {/* URL + copy */}
-              <div className="flex items-center gap-2 mb-3">
-                <div
-                  className="flex items-center gap-2 flex-1 px-3 py-2.5 rounded-xl"
-                  style={{
-                    background: "#141418",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                  }}
-                >
-                  <span className="text-[13px] font-mono" style={{ color: "#71717A" }}>
-                    {APP_URL}
-                  </span>
-                </div>
-                <button
-                  onClick={handleCopy}
-                  className="px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200"
-                  style={{
-                    background: copied ? "rgba(0,200,117,0.1)" : "rgba(255,255,255,0.05)",
-                    color: copied ? "#34D399" : "#A1A1AA",
-                    border: `1px solid ${copied ? "rgba(0,200,117,0.2)" : "rgba(255,255,255,0.08)"}`,
-                  }}
-                >
-                  {copied ? "Copied!" : "Copy link"}
-                </button>
-              </div>
 
               {/* SMS CTA */}
               <button
                 onClick={handleSMS}
-                className="w-full py-3.5 rounded-xl text-[15px] font-semibold flex items-center justify-center gap-2 transition-all duration-200"
+                className="pressable w-full py-4 rounded-xl text-[16px] font-semibold flex items-center justify-center gap-2 transition-all duration-200"
                 style={{
                   background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-                  color: "#fff",
-                  boxShadow: "0 0 24px rgba(0,200,117,0.25)",
+                  color: "#fff", boxShadow: "0 0 28px rgba(0,200,117,0.25)",
                 }}
               >
-                <MessageCircle size={17} />
+                <MessageCircle size={18} />
                 Text me the link
               </button>
             </div>
 
             <button
-              onClick={() => setShowMobilePrompt(false)}
+              onClick={() => { setPhase("landing"); setTrades([]); setLocations([]); }}
               className="text-[13px] transition-colors duration-150"
               style={{ color: "#52525B" }}
             >
-              ← Back
+              ← Start over
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Right column — phone mockup ─────────────────────────── */}
+      {/* ── Right column — phone ─────────────────────────────────────── */}
       <div className="hidden lg:flex flex-1 items-center justify-center relative">
-        {/* Subtle dot grid */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            opacity: 0.025,
-            backgroundImage:
-              "radial-gradient(rgba(255,255,255,0.8) 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-
-        {/* Green glow behind phone */}
-        <div
-          className="absolute rounded-full pointer-events-none"
-          style={{
-            width: 340,
-            height: 340,
-            background: "radial-gradient(circle, rgba(0,200,117,0.07) 0%, transparent 70%)",
-          }}
-        />
-
-        {/* Floating phone */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          opacity: 0.025,
+          backgroundImage: "radial-gradient(rgba(255,255,255,0.8) 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }} />
+        <div className="absolute rounded-full pointer-events-none" style={{
+          width: 340, height: 340,
+          background: "radial-gradient(circle, rgba(0,200,117,0.07) 0%, transparent 70%)",
+        }} />
         <div style={{ animation: "float 7s ease-in-out infinite" }}>
-          <PhoneMockup />
+          <PhoneFrame phase={phase} trades={trades} locations={locations} />
         </div>
       </div>
     </div>
