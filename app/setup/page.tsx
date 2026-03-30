@@ -1,44 +1,46 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowLeft, ArrowRight, Check, X, Plus } from "lucide-react";
 import { useAppStore, type SetupStep } from "@/lib/store";
 
-// ── Option data — trimmed to top 8 each ──────────────────────────────────────
+// ── Trade options ─────────────────────────────────────────────────────────────
 
-const WHAT_I_SELL_OPTIONS = [
+const TRADE_OPTIONS = [
   "Mechanical / HVAC",
   "Electrical",
   "Plumbing",
   "Framing / Structure",
   "Roofing",
+  "Concrete / Foundation",
+  "Drywall / Insulation",
+  "Windows & Doors",
+  "Painting & Finishing",
+  "Fire Protection",
   "General Contracting",
   "Materials & Supply",
   "Other",
 ];
 
-const WHERE_OPTIONS = [
-  "Kelowna",
-  "West Kelowna",
-  "Penticton",
-  "Vernon",
-  "Kamloops",
-  "Vancouver",
-  "Victoria",
-  "Anywhere in BC",
+// ── Location suggestions (quick-start only — not exhaustive) ─────────────────
+
+const LOCATION_SUGGESTIONS = [
+  "Kelowna", "Vancouver", "Calgary", "Edmonton",
+  "Victoria", "Kamloops", "Surrey", "Burnaby",
 ];
 
-// Only 2 steps in the onboarding flow
+// ── Wizard steps ──────────────────────────────────────────────────────────────
+
 const STEPS: SetupStep[] = ["what_you_sell", "where_you_operate"];
 
 const STEP_INDEX: Record<SetupStep, number> = {
-  what_you_sell: 0,
+  what_you_sell:    0,
   where_you_operate: 1,
-  // Remaining steps kept for type compatibility but not used in wizard
-  project_types: 2,
-  whatsapp: 3,
-  contacts: 4,
-  email: 5,
+  project_types:    2,
+  whatsapp:         3,
+  contacts:         4,
+  email:            5,
 };
 
 // ── Selection chip ────────────────────────────────────────────────────────────
@@ -47,17 +49,20 @@ function SelectionChip({
   label,
   selected,
   onClick,
+  index = 0,
 }: {
   label: string;
   selected: boolean;
   onClick: () => void;
+  index?: number;
 }) {
   return (
     <button
       onClick={onClick}
-      className="pressable chip transition-all duration-150"
-      style={
-        selected
+      className="pressable chip transition-all duration-150 animate-fade-up"
+      style={{
+        animationDelay: `${index * 30}ms`,
+        ...(selected
           ? {
               background: "rgba(0,200,117,0.12)",
               border: "1px solid rgba(0,200,117,0.3)",
@@ -68,8 +73,8 @@ function SelectionChip({
               background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.09)",
               color: "#A1A1AA",
-            }
-      }
+            }),
+      }}
     >
       {selected && (
         <span
@@ -81,6 +86,36 @@ function SelectionChip({
       )}
       {label}
     </button>
+  );
+}
+
+// ── Location tag ──────────────────────────────────────────────────────────────
+
+function LocationTag({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
+  return (
+    <span
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium animate-scale-in"
+      style={{
+        background: "rgba(0,200,117,0.12)",
+        border: "1px solid rgba(0,200,117,0.25)",
+        color: "#34D399",
+      }}
+    >
+      {label}
+      <button
+        onClick={onRemove}
+        className="flex items-center justify-center rounded-full flex-shrink-0"
+        style={{ width: 14, height: 14, color: "#34D399", opacity: 0.7 }}
+      >
+        <X size={10} strokeWidth={2.5} />
+      </button>
+    </span>
   );
 }
 
@@ -98,15 +133,57 @@ export default function SetupPage() {
     setActiveIntent,
   } = useAppStore();
 
-  const currentIndex = STEP_INDEX[setup.currentStep] < STEPS.length
-    ? STEP_INDEX[setup.currentStep]
-    : 0;
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [otherTrade, setOtherTrade] = useState("");
+  const [locationInput, setLocationInput] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const locationInputRef = useRef<HTMLInputElement>(null);
+
+  const currentIndex =
+    STEP_INDEX[setup.currentStep] < STEPS.length
+      ? STEP_INDEX[setup.currentStep]
+      : 0;
+
+  // When "Other" is selected, show the text input
+  useEffect(() => {
+    if (setup.whatISell.includes("Other")) {
+      setShowOtherInput(true);
+    } else {
+      setShowOtherInput(false);
+      setOtherTrade("");
+    }
+  }, [setup.whatISell]);
+
+  const addLocation = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    // Already added
+    if (setup.whereIOperate.map((l) => l.toLowerCase()).includes(trimmed.toLowerCase())) {
+      setLocationError("Already added");
+      setTimeout(() => setLocationError(""), 1800);
+      setLocationInput("");
+      return;
+    }
+    toggleWhereIOperate(trimmed);
+    setLocationInput("");
+    setLocationError("");
+  };
+
+  const handleLocationKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addLocation(locationInput);
+    }
+    if (e.key === "Backspace" && !locationInput && setup.whereIOperate.length > 0) {
+      // Remove last tag on backspace
+      toggleWhereIOperate(setup.whereIOperate[setup.whereIOperate.length - 1]);
+    }
+  };
 
   const goNext = () => {
     if (currentIndex < STEPS.length - 1) {
       setSetupStep(STEPS[currentIndex + 1]);
     } else {
-      // Step 2 complete — launch Scout
       completeSetup();
       setActiveIntent(
         `${setup.whatISell.join(", ")} in ${setup.whereIOperate.join(", ")}`
@@ -124,12 +201,26 @@ export default function SetupPage() {
     }
   };
 
+  // Step 1 valid: at least one trade, and if "Other" selected, they've typed something
+  const step1Valid =
+    setup.whatISell.length > 0 &&
+    (!setup.whatISell.includes("Other") || otherTrade.trim().length > 0);
+
+  // Step 2 valid: at least one location added
+  const step2Valid = setup.whereIOperate.length > 0;
+
   const canProceed =
-    setup.currentStep === "what_you_sell"
-      ? setup.whatISell.length > 0
-      : setup.whereIOperate.length > 0;
+    setup.currentStep === "what_you_sell" ? step1Valid : step2Valid;
 
   const isFinalStep = currentIndex === STEPS.length - 1;
+
+  // Suggestions not already added
+  const unusedSuggestions = LOCATION_SUGGESTIONS.filter(
+    (s) =>
+      !setup.whereIOperate
+        .map((l) => l.toLowerCase())
+        .includes(s.toLowerCase())
+  );
 
   return (
     <div className="flex flex-col min-h-dvh bg-base">
@@ -158,7 +249,7 @@ export default function SetupPage() {
           <ArrowLeft size={17} strokeWidth={2} style={{ color: "#A1A1AA" }} />
         </button>
 
-        {/* Progress track — 2 steps only */}
+        {/* Progress track */}
         <div className="flex-1 flex items-center gap-1.5 mr-4">
           {STEPS.map((_, i) => (
             <div
@@ -182,7 +273,7 @@ export default function SetupPage() {
           className="text-[12px] font-semibold flex-shrink-0"
           style={{ color: "#52525B" }}
         >
-          {currentIndex === 0 ? "Step 1 of 2 · 20 seconds" : "Step 2 of 2"}
+          {currentIndex === 0 ? "Step 1 of 2 · 20 sec" : "Step 2 of 2"}
         </span>
       </header>
 
@@ -191,7 +282,8 @@ export default function SetupPage() {
         key={setup.currentStep}
         className="relative z-10 px-5 pt-8 pb-6 flex flex-col flex-1 animate-fade-up"
       >
-        {/* ── What I Sell ── */}
+
+        {/* ── Step 1: What do you sell ── */}
         {setup.currentStep === "what_you_sell" && (
           <>
             <h2
@@ -200,44 +292,179 @@ export default function SetupPage() {
             >
               What do you sell?
             </h2>
-            <p className="text-[14px] mb-7" style={{ color: "#52525B" }}>
+            <p className="text-[14px] mb-2" style={{ color: "#52525B" }}>
               Scout matches live permits to your trade.
             </p>
+
+            {/* Selected count */}
+            {setup.whatISell.length > 0 && (
+              <p
+                className="text-[12px] font-semibold mb-5 animate-fade-in"
+                style={{ color: "#00C875" }}
+              >
+                {setup.whatISell.length} selected
+              </p>
+            )}
+            {setup.whatISell.length === 0 && <div className="mb-5" />}
+
             <div className="flex flex-wrap gap-2">
-              {WHAT_I_SELL_OPTIONS.map((opt) => (
+              {TRADE_OPTIONS.map((opt, i) => (
                 <SelectionChip
                   key={opt}
                   label={opt}
                   selected={setup.whatISell.includes(opt)}
                   onClick={() => toggleWhatISell(opt)}
+                  index={i}
                 />
               ))}
             </div>
+
+            {/* "Other" free-text input */}
+            {showOtherInput && (
+              <div className="mt-4 animate-fade-up">
+                <p className="text-[12px] mb-2" style={{ color: "#71717A" }}>
+                  What do you sell?
+                </p>
+                <input
+                  autoFocus
+                  type="text"
+                  value={otherTrade}
+                  onChange={(e) => setOtherTrade(e.target.value)}
+                  placeholder="e.g. Spray foam, Elevators, Landscaping"
+                  className="w-full px-4 py-3 rounded-xl text-[14px]"
+                  style={{
+                    background: "#1C1C22",
+                    border: "1px solid rgba(0,200,117,0.3)",
+                    color: "#F4F4F5",
+                    outline: "none",
+                    caretColor: "#00C875",
+                  }}
+                />
+              </div>
+            )}
           </>
         )}
 
-        {/* ── Where I Operate ── */}
+        {/* ── Step 2: Where do you work ── */}
         {setup.currentStep === "where_you_operate" && (
           <>
             <h2
               className="text-[28px] font-bold leading-tight mb-1"
               style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
             >
-              Which cities?
+              Where do you work?
             </h2>
-            <p className="text-[14px] mb-7" style={{ color: "#52525B" }}>
-              Scout scans permit registries in your area.
+            <p className="text-[14px] mb-5" style={{ color: "#52525B" }}>
+              Add any city, region, or province — anywhere.
             </p>
-            <div className="flex flex-wrap gap-2">
-              {WHERE_OPTIONS.map((opt) => (
-                <SelectionChip
-                  key={opt}
-                  label={opt}
-                  selected={setup.whereIOperate.includes(opt)}
-                  onClick={() => toggleWhereIOperate(opt)}
+
+            {/* Tag input box */}
+            <div
+              className="rounded-2xl p-3 mb-4 transition-all duration-200"
+              style={{
+                background: "#1C1C22",
+                border: `1px solid ${
+                  locationError
+                    ? "rgba(239,68,68,0.4)"
+                    : setup.whereIOperate.length > 0
+                    ? "rgba(0,200,117,0.3)"
+                    : "rgba(255,255,255,0.09)"
+                }`,
+              }}
+              onClick={() => locationInputRef.current?.focus()}
+            >
+              {/* Added tags */}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {setup.whereIOperate.map((loc) => (
+                  <LocationTag
+                    key={loc}
+                    label={loc}
+                    onRemove={() => toggleWhereIOperate(loc)}
+                  />
+                ))}
+              </div>
+
+              {/* Input row */}
+              <div className="flex items-center gap-2">
+                <input
+                  ref={locationInputRef}
+                  type="text"
+                  value={locationInput}
+                  onChange={(e) => {
+                    setLocationInput(e.target.value);
+                    setLocationError("");
+                  }}
+                  onKeyDown={handleLocationKey}
+                  placeholder={
+                    setup.whereIOperate.length === 0
+                      ? "e.g. Calgary, Phoenix, Ontario..."
+                      : "Add another..."
+                  }
+                  className="flex-1 text-[14px] bg-transparent outline-none"
+                  style={{
+                    color: "#F4F4F5",
+                    caretColor: "#00C875",
+                  }}
                 />
-              ))}
+                {locationInput.trim() && (
+                  <button
+                    onClick={() => addLocation(locationInput)}
+                    className="pressable flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-150"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                    }}
+                  >
+                    <Plus size={14} color="white" strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+
+              {locationError && (
+                <p
+                  className="text-[11px] mt-1.5 animate-fade-in"
+                  style={{ color: "#EF4444" }}
+                >
+                  {locationError}
+                </p>
+              )}
             </div>
+
+            {/* Helper hint */}
+            <p className="text-[11px] mb-5" style={{ color: "#3F3F46" }}>
+              Press Enter or tap + to add · Backspace to remove last
+            </p>
+
+            {/* Quick-start suggestions */}
+            {unusedSuggestions.length > 0 && (
+              <>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-widest mb-3"
+                  style={{ color: "#3F3F46" }}
+                >
+                  Quick add
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {unusedSuggestions.map((city, i) => (
+                    <button
+                      key={city}
+                      onClick={() => addLocation(city)}
+                      className="pressable flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium animate-fade-up"
+                      style={{
+                        animationDelay: `${i * 25}ms`,
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        color: "#71717A",
+                      }}
+                    >
+                      <Plus size={10} strokeWidth={2.5} />
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </main>
@@ -251,8 +478,7 @@ export default function SetupPage() {
           style={
             canProceed
               ? {
-                  background:
-                    "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                  background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
                   color: "#fff",
                   boxShadow: "0 0 24px rgba(0,200,117,0.28)",
                 }
