@@ -56,23 +56,27 @@ async def run(user_id: str, query: str) -> ScoutResult:
     t0 = time.monotonic()
 
     # ── Step 1: Parse intent ─────────────────────────────────────────────────
+    t1 = time.monotonic()
     try:
         intent = await intent_parser.parse_intent(query)
     except Exception as e:
         logger.error(f"Intent parsing failed: {e}")
         from models.scout_models import WarmthPreference, WorkType, Urgency
         intent = UserIntent(raw_query=query, parsed_by="error")
+    logger.info(f"[timing] intent_parse={int((time.monotonic()-t1)*1000)}ms")
 
     # ── Step 2: Select sources ───────────────────────────────────────────────
     source_types = source_selector.select_sources(intent)
 
     # ── Step 3: Gather raw evidence (all adapters in parallel) ───────────────
+    t3 = time.monotonic()
     adapter_tasks = [
         _ADAPTERS[st].fetch(intent)
         for st in source_types
         if st in _ADAPTERS
     ]
     raw_results = await asyncio.gather(*adapter_tasks, return_exceptions=True)
+    logger.info(f"[timing] adapter_fetch={int((time.monotonic()-t3)*1000)}ms raw={sum(len(r) for r in raw_results if not isinstance(r,Exception))}")
 
     all_raw_records = []
     sources_used: List[str] = []
@@ -94,11 +98,13 @@ async def run(user_id: str, query: str) -> ScoutResult:
         )
 
     # ── Step 4: Normalize ────────────────────────────────────────────────────
+    t4 = time.monotonic()
     try:
         normalized = await normalize_records(all_raw_records)
     except Exception as e:
         logger.error(f"Normalization failed: {e}", exc_info=True)
         normalized = []
+    logger.info(f"[timing] normalize={int((time.monotonic()-t4)*1000)}ms in={len(all_raw_records)} out={len(normalized)}")
 
     if not normalized:
         return ScoutResult(
@@ -130,11 +136,13 @@ async def run(user_id: str, query: str) -> ScoutResult:
     top_candidates = scored[:_MAX_RESULTS]
 
     # ── Step 7: Relationship intelligence (parallel) ──────────────────────────
+    t7 = time.monotonic()
     rel_tasks = [
         check_relationship(user_id, project)
         for project, _ in top_candidates
     ]
     rel_results = await asyncio.gather(*rel_tasks, return_exceptions=True)
+    logger.info(f"[timing] relationship={int((time.monotonic()-t7)*1000)}ms")
 
     # ── Step 8: Re-score with relationship and build opportunities ─────────────
     opportunities: List[Opportunity] = []

@@ -11,6 +11,7 @@ poster_name and poster_company are extracted from the LinkedIn URL structure
 and the snippet content where possible.
 """
 from __future__ import annotations
+import asyncio
 import logging
 import os
 import re
@@ -46,62 +47,61 @@ class LinkedInAdapter(BaseAdapter):
 
     async def _fetch(self, intent: UserIntent) -> List[RawRecord]:
         queries = self._build_queries(intent)
-        records: List[RawRecord] = []
-        seen_urls: set[str] = set()
+
+        async def _run_query(client: httpx.AsyncClient, query: str) -> List[RawRecord]:
+            try:
+                response = await client.post(
+                    _TAVILY_URL,
+                    json={
+                        "api_key": self.api_key,
+                        "query": query,
+                        "search_depth": "basic",
+                        "max_results": _MAX_RESULTS_PER_QUERY,
+                        "include_answer": False,
+                        "include_raw_content": False,
+                    },
+                )
+                response.raise_for_status()
+                results = []
+                for result in response.json().get("results", []):
+                    url = result.get("url", "")
+                    if "linkedin.com" not in url.lower():
+                        continue
+                    content = result.get("content", "")
+                    title = result.get("title", "")
+                    poster_name, poster_company = self._extract_poster(url, title, content)
+                    results.append(RawRecord(
+                        source_type=SourceType.LINKEDIN,
+                        confidence=SourceConfidence.LOW,
+                        raw_data={
+                            "title": title,
+                            "url": url,
+                            "content": content,
+                            "score": result.get("score", 0),
+                            "query": query,
+                            "linkedin_post_url": url if "/posts/" in url or "/feed/" in url else None,
+                            "poster_name": poster_name,
+                            "poster_company": poster_company,
+                        },
+                        source_url=url,
+                        source_date=None,
+                    ))
+                return results
+            except Exception as e:
+                logger.warning(f"LinkedInAdapter query failed: {e}")
+                return []
 
         async with httpx.AsyncClient(timeout=20.0) as client:
-            for query in queries:
-                if len(records) >= _MAX_TOTAL:
-                    break
-                try:
-                    response = await client.post(
-                        _TAVILY_URL,
-                        json={
-                            "api_key": self.api_key,
-                            "query": query,
-                            "search_depth": "basic",
-                            "max_results": _MAX_RESULTS_PER_QUERY,
-                            "include_answer": False,
-                            "include_raw_content": False,
-                        },
-                    )
-                    response.raise_for_status()
-                    data = response.json()
+            batch = await asyncio.gather(*[_run_query(client, q) for q in queries])
 
-                    for result in data.get("results", []):
-                        url = result.get("url", "")
-                        # Only keep LinkedIn URLs
-                        if "linkedin.com" not in url.lower():
-                            continue
-                        if url in seen_urls:
-                            continue
-                        seen_urls.add(url)
-
-                        content = result.get("content", "")
-                        title = result.get("title", "")
-                        poster_name, poster_company = self._extract_poster(url, title, content)
-
-                        records.append(RawRecord(
-                            source_type=SourceType.LINKEDIN,
-                            confidence=SourceConfidence.LOW,
-                            raw_data={
-                                "title": title,
-                                "url": url,
-                                "content": content,
-                                "score": result.get("score", 0),
-                                "query": query,
-                                "linkedin_post_url": url if "/posts/" in url or "/feed/" in url else None,
-                                "poster_name": poster_name,
-                                "poster_company": poster_company,
-                            },
-                            source_url=url,
-                            source_date=None,
-                        ))
-                        if len(records) >= _MAX_TOTAL:
-                            break
-                except Exception as e:
-                    logger.warning(f"LinkedInAdapter query failed: {e}")
-                    continue
+        # Deduplicate by URL and cap at _MAX_TOTAL
+        seen_urls: set[str] = set()
+        records: List[RawRecord] = []
+        for sublist in batch:
+            for r in sublist:
+                if r.source_url not in seen_urls and len(records) < _MAX_TOTAL:
+                    seen_urls.add(r.source_url)
+                    records.append(r)
 
         logger.info(f"LinkedInAdapter: {len(records)} records for '{intent.raw_query[:50]}'")
         return records

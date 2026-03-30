@@ -214,37 +214,36 @@ async def _extract_with_claude(records: List[RawRecord]) -> List[Optional[dict]]
         return [None] * len(records)
 
     import anthropic
-    client = anthropic.Anthropic(api_key=api_key, max_retries=1, timeout=20.0)
+    client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=1, timeout=20.0)
 
-    results: List[Optional[dict]] = []
+    semaphore = asyncio.Semaphore(8)  # true async — higher concurrency is safe
 
-    # Process records individually (batching increases complexity without much gain here)
-    for record in records:
-        d = record.raw_data
-        prompt = _EXTRACT_PROMPT.format(
-            title=d.get("title", "")[:200],
-            url=d.get("url", "")[:200],
-            content=d.get("content", "")[:800],
-        )
-        try:
-            response = await asyncio.to_thread(
-                client.messages.create,
-                model="claude-haiku-4-5-20251001",
-                max_tokens=512,
-                system=_EXTRACT_SYSTEM,
-                messages=[{"role": "user", "content": prompt}],
+    async def _extract_one(record: RawRecord) -> Optional[dict]:
+        async with semaphore:
+            d = record.raw_data
+            prompt = _EXTRACT_PROMPT.format(
+                title=d.get("title", "")[:200],
+                url=d.get("url", "")[:200],
+                content=d.get("content", "")[:800],
             )
-            raw = response.content[0].text.strip()
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:].strip()
-            results.append(json.loads(raw))
-        except Exception as e:
-            logger.debug(f"Claude extraction failed for '{d.get('url','')}': {e}")
-            results.append(None)
+            try:
+                response = await client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=512,
+                    system=_EXTRACT_SYSTEM,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                raw = response.content[0].text.strip()
+                if raw.startswith("```"):
+                    raw = raw.split("```")[1]
+                    if raw.startswith("json"):
+                        raw = raw[4:].strip()
+                return json.loads(raw)
+            except Exception as e:
+                logger.debug(f"Claude extraction failed for '{d.get('url','')}': {e}")
+                return None
 
-    return results
+    return list(await asyncio.gather(*[_extract_one(r) for r in records]))
 
 
 def _normalize_web_record(record: RawRecord, extracted: Optional[dict]) -> Optional[NormalizedProject]:
@@ -349,35 +348,35 @@ async def _extract_linkedin_with_claude(records: List[RawRecord]) -> List[Option
         return [None] * len(records)
 
     import anthropic
-    client = anthropic.Anthropic(api_key=api_key, max_retries=1, timeout=20.0)
-    results: List[Optional[dict]] = []
+    client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=1, timeout=20.0)
+    semaphore = asyncio.Semaphore(8)
 
-    for record in records:
-        d = record.raw_data
-        prompt = _LINKEDIN_EXTRACT_PROMPT.format(
-            title=d.get("title", "")[:200],
-            url=d.get("url", "")[:200],
-            content=d.get("content", "")[:800],
-        )
-        try:
-            response = await asyncio.to_thread(
-                client.messages.create,
-                model="claude-haiku-4-5-20251001",
-                max_tokens=512,
-                system=_EXTRACT_SYSTEM,
-                messages=[{"role": "user", "content": prompt}],
+    async def _extract_one(record: RawRecord) -> Optional[dict]:
+        async with semaphore:
+            d = record.raw_data
+            prompt = _LINKEDIN_EXTRACT_PROMPT.format(
+                title=d.get("title", "")[:200],
+                url=d.get("url", "")[:200],
+                content=d.get("content", "")[:800],
             )
-            raw = response.content[0].text.strip()
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:].strip()
-            results.append(json.loads(raw))
-        except Exception as e:
-            logger.debug(f"LinkedIn Claude extraction failed: {e}")
-            results.append(None)
+            try:
+                response = await client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=512,
+                    system=_EXTRACT_SYSTEM,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                raw = response.content[0].text.strip()
+                if raw.startswith("```"):
+                    raw = raw.split("```")[1]
+                    if raw.startswith("json"):
+                        raw = raw[4:].strip()
+                return json.loads(raw)
+            except Exception as e:
+                logger.debug(f"LinkedIn Claude extraction failed: {e}")
+                return None
 
-    return results
+    return list(await asyncio.gather(*[_extract_one(r) for r in records]))
 
 
 def _normalize_linkedin_record(record: RawRecord, extracted: Optional[dict]) -> Optional[NormalizedProject]:

@@ -52,7 +52,7 @@ const TYPE_COLOR: Record<UpdateType, string> = {
 
 export default function WorkingPage() {
   const router = useRouter();
-  const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, setCoverageNote, opportunities, setWhatsappPhone, whatsappPhone } =
+  const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, setCoverageNote, setOpportunities, opportunities, setWhatsappPhone, whatsappPhone } =
     useAppStore();
   const [done, setDone] = useState(false);
   const [showTyping, setShowTyping] = useState(true);
@@ -70,6 +70,11 @@ export default function WorkingPage() {
         setLiveCount(opps.length);
         setCoverageNote(coverageNote);
         setScoutBriefing(`Scout found ${opps.length} leads matching your profile.`);
+        // Always push real data into the store when it arrives — animation may have
+        // already finished before the API returned (pipeline can take 30–60s).
+        if (opps.length > 0) {
+          setOpportunities(opps);
+        }
       })
       .catch(() => {
         realDataRef.current = null;

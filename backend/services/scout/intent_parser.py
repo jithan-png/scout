@@ -71,9 +71,8 @@ async def parse_intent(query: str) -> UserIntent:
 async def _claude_parse(query: str, api_key: str) -> UserIntent:
     import anthropic
 
-    client = anthropic.Anthropic(api_key=api_key, max_retries=1, timeout=10.0)
-    response = await asyncio.to_thread(
-        client.messages.create,
+    client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=1, timeout=10.0)
+    response = await client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=512,
         system=_SYSTEM,

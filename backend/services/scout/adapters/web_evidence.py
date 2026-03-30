@@ -8,6 +8,7 @@ Confidence starts at LOW. If Claude can extract clean structured data from the
 content, it may be elevated to MEDIUM after normalization.
 """
 from __future__ import annotations
+import asyncio
 import logging
 import os
 from typing import List
@@ -53,51 +54,47 @@ class WebEvidenceAdapter(BaseAdapter):
             return []
 
     async def _fetch(self, intent: UserIntent) -> List[RawRecord]:
-        queries = self._build_queries(intent)
-        records: List[RawRecord] = []
+        queries = self._build_queries(intent)[:_MAX_QUERIES]
+
+        async def _run_query(client: httpx.AsyncClient, query: str) -> List[RawRecord]:
+            try:
+                response = await client.post(
+                    _TAVILY_URL,
+                    json={
+                        "api_key": self.api_key,
+                        "query": query,
+                        "search_depth": "basic",
+                        "max_results": _MAX_RESULTS_PER_QUERY,
+                        "include_answer": False,
+                        "include_raw_content": False,
+                    },
+                )
+                response.raise_for_status()
+                results = []
+                for result in response.json().get("results", []):
+                    url = result.get("url", "")
+                    results.append(RawRecord(
+                        source_type=SourceType.WEB_EVIDENCE,
+                        confidence=SourceConfidence.MEDIUM if self._is_official_domain(url) else SourceConfidence.LOW,
+                        raw_data={
+                            "title":   result.get("title", ""),
+                            "url":     url,
+                            "content": result.get("content", ""),
+                            "score":   result.get("score", 0),
+                            "query":   query,
+                        },
+                        source_url=url,
+                        source_date=None,
+                    ))
+                return results
+            except Exception as e:
+                logger.warning(f"WebEvidenceAdapter query '{query[:60]}' failed: {e}")
+                return []
 
         async with httpx.AsyncClient(timeout=20.0) as client:
-            for query in queries[:_MAX_QUERIES]:
-                try:
-                    response = await client.post(
-                        _TAVILY_URL,
-                        json={
-                            "api_key": self.api_key,
-                            "query": query,
-                            "search_depth": "basic",
-                            "max_results": _MAX_RESULTS_PER_QUERY,
-                            "include_answer": False,
-                            "include_raw_content": False,
-                        },
-                    )
-                    response.raise_for_status()
-                    data = response.json()
+            batch = await asyncio.gather(*[_run_query(client, q) for q in queries])
 
-                    for result in data.get("results", []):
-                        url = result.get("url", "")
-                        # Elevate confidence for official domains
-                        confidence = (
-                            SourceConfidence.MEDIUM
-                            if self._is_official_domain(url)
-                            else SourceConfidence.LOW
-                        )
-                        records.append(RawRecord(
-                            source_type=SourceType.WEB_EVIDENCE,
-                            confidence=confidence,
-                            raw_data={
-                                "title":   result.get("title", ""),
-                                "url":     url,
-                                "content": result.get("content", ""),
-                                "score":   result.get("score", 0),
-                                "query":   query,
-                            },
-                            source_url=url,
-                            source_date=None,  # will be inferred during normalization
-                        ))
-                except Exception as e:
-                    logger.warning(f"WebEvidenceAdapter query '{query[:60]}' failed: {e}")
-                    continue
-
+        records = [r for sublist in batch for r in sublist]
         logger.info(f"WebEvidenceAdapter: {len(records)} records for '{intent.raw_query[:50]}'")
         return records
 
