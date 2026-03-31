@@ -59,6 +59,7 @@ export default function WorkingPage() {
   const [liveCount, setLiveCount] = useState<number | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
   const [whatsappSaved, setWhatsappSaved] = useState(false);
+  const [smsSending, setSmsSending] = useState(false);
   const realDataRef = useRef<ScoutOpportunity[] | null>(null);
 
   useEffect(() => {
@@ -390,13 +391,26 @@ export default function WorkingPage() {
                       />
                     </div>
                     <button
-                      onClick={() => {
-                        if (phoneInput.trim()) {
-                          setWhatsappPhone(phoneInput.trim());
-                          setWhatsappSaved(true);
+                      onClick={async () => {
+                        if (!phoneInput.trim()) return;
+                        setSmsSending(true);
+                        try {
+                          await fetch(
+                            `/api/notify/register`,
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ phone: phoneInput.trim() }),
+                            }
+                          );
+                        } catch (_) {
+                          // fail silently — still save locally
                         }
+                        setWhatsappPhone(phoneInput.trim());
+                        setWhatsappSaved(true);
+                        setSmsSending(false);
                       }}
-                      disabled={!phoneInput.trim()}
+                      disabled={!phoneInput.trim() || smsSending}
                       className="pressable w-full py-3 rounded-xl text-[14px] font-semibold transition-all duration-200"
                       style={
                         phoneInput.trim()
@@ -411,7 +425,7 @@ export default function WorkingPage() {
                             }
                       }
                     >
-                      Send me WhatsApp alerts
+                      {smsSending ? "Sending..." : "Send me WhatsApp alerts"}
                     </button>
                   </>
                 )}

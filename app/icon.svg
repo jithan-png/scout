@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00C875"/>
+      <stop offset="100%" stop-color="#00A860"/>
+    </linearGradient>
+  </defs>
+  <!-- Green gradient rounded square -->
+  <rect width="32" height="32" rx="7" fill="url(#g)"/>
+  <!--
+    B glyph bounding box in original 14px space: x 3–11, y 2–12
+    Glyph center: (7, 7). Scale ×2 → center at (14, 14).
+    Shift to container center (16,16): translate(2, 2)
+  -->
+  <g transform="translate(2, 2) scale(2)">
+    <path d="M3 2h5a2.5 2.5 0 0 1 0 5H3V2Z" fill="white" fill-opacity="0.95"/>
+    <path d="M3 7h5.5a2.5 2.5 0 0 1 0 5H3V7Z" fill="white" fill-opacity="0.7"/>
+  </g>
+</svg>

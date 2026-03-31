@@ -6,6 +6,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import OpportunityCard from "@/components/opportunities/OpportunityCard";
 import BottomNav from "@/components/ui/BottomNav";
+import FloatingChat from "@/components/ui/FloatingChat";
 import type { OpportunityPriority, Opportunity, LeadSource, ScoutOpportunity } from "@/lib/types";
 
 const FILTERS: { label: string; value: OpportunityPriority | "all" }[] = [
@@ -295,6 +296,7 @@ export default function OpportunitiesPage() {
 
       <div className="pb-nav" />
       <BottomNav />
+      <FloatingChat />
     </div>
   );
 }

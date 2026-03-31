@@ -29,7 +29,7 @@ export default function HomePage() {
     const trimmed = text.trim();
     if (!trimmed) return;
     if (!setup.completed) {
-      router.push("/setup");
+      router.push("/onboarding");
       return;
     }
     setActiveIntent(trimmed);

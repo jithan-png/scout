@@ -74,6 +74,11 @@
     padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 
+  /* Safe-area bottom padding (for floating elements) */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   /* Full dynamic viewport height */
   .h-dvh {
     height: 100dvh;

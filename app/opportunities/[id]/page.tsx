@@ -21,6 +21,7 @@ import {
 import { useState } from "react";
 import { useAppStore } from "@/lib/store";
 import ScoreBreakdown from "@/components/opportunities/ScoreBreakdown";
+import FloatingChat from "@/components/ui/FloatingChat";
 import type { RelationshipStrength, ScoutOpportunity, LeadSourceRecord } from "@/lib/types";
 
 function formatValue(v: number): string {
@@ -558,6 +559,10 @@ export default function OpportunityDetailPage() {
         </div>
 
       </div>
+
+      <FloatingChat
+        context={`Lead: ${opp.project.name}, ${opp.company.name}, ${opp.project.city}${(scout.estimatedValue ?? opp.project.value) ? `, ${formatValue(scout.estimatedValue ?? opp.project.value!)}` : ""}, score ${opp.score}`}
+      />
     </div>
   );
 }

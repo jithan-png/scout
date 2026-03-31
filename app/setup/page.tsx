@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
-import { ArrowLeft, ArrowRight, Check, X, Plus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { ArrowLeft, ArrowRight, Check, X, Plus, Sparkles } from "lucide-react";
 import { useAppStore, type SetupStep } from "@/lib/store";
 
 // ── Trade options ─────────────────────────────────────────────────────────────
@@ -121,8 +121,10 @@ function LocationTag({
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-export default function SetupPage() {
+function SetupPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPrefilled = searchParams.get("prefilled") === "true";
   const {
     setup,
     setSetupStep,
@@ -282,6 +284,22 @@ export default function SetupPage() {
         key={setup.currentStep}
         className="relative z-10 px-5 pt-8 pb-6 flex flex-col flex-1 animate-fade-up"
       >
+
+        {/* ── Pre-filled banner ── */}
+        {isPrefilled && setup.currentStep === "what_you_sell" && (
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-5 animate-fade-up"
+            style={{
+              background: "rgba(0,200,117,0.08)",
+              border: "1px solid rgba(0,200,117,0.2)",
+            }}
+          >
+            <Sparkles size={13} style={{ color: "#00C875", flexShrink: 0 }} />
+            <p className="text-[12px]" style={{ color: "#34D399" }}>
+              Pre-filled from your message — review and confirm
+            </p>
+          </div>
+        )}
 
         {/* ── Step 1: What do you sell ── */}
         {setup.currentStep === "what_you_sell" && (
@@ -494,5 +512,13 @@ export default function SetupPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function SetupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SetupPageInner />
+    </Suspense>
   );
 }

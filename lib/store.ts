@@ -32,6 +32,11 @@ interface SetupState {
 
 // ── App store ───────────────────────────────────────────────────────────────
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface AppStore {
   // User
   user: User | null;
@@ -89,6 +94,14 @@ interface AppStore {
   // Data connections
   connections: DataConnection[];
   updateConnection: (id: string, status: DataConnection["status"]) => void;
+
+  // Chat
+  chatMessages: ChatMessage[];
+  isChatOpen: boolean;
+  openChat: () => void;
+  closeChat: () => void;
+  addChatMessage: (msg: ChatMessage) => void;
+  clearChat: () => void;
 }
 
 export const useAppStore = create<AppStore>()(
@@ -256,6 +269,15 @@ export const useAppStore = create<AppStore>()(
             c.id === id ? { ...c, status } : c
           ),
         })),
+
+      // ── Chat ─────────────────────────────────────────────────────────────────
+      chatMessages: [],
+      isChatOpen: false,
+      openChat: () => set({ isChatOpen: true }),
+      closeChat: () => set({ isChatOpen: false }),
+      addChatMessage: (msg) =>
+        set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
+      clearChat: () => set({ chatMessages: [] }),
     }),
     {
       name: "buildmapper-store",

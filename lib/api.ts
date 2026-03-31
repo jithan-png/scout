@@ -6,7 +6,7 @@
 
 import type { Opportunity, OpportunityPriority, ScoutOpportunity, LeadSource, ScoreBreakdown, LeadSourceRecord } from "./types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
 
 // ── Fetch wrapper ────────────────────────────────────────────────────────────
 
