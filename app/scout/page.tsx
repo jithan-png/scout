@@ -13,7 +13,7 @@ function getSuggestions(trades: string[], cities: string[], projectTypes: string
   const city = cities[0] || "your area";
   const trade = trades[0] || "your trade";
   return [
-    `Find new ${projectTypes[0] || "commercial"} leads for me in ${city}`,
+    `Find new ${projectTypes[0] || "commercial"} opportunities for me in ${city}`,
     `What permits were filed in ${city} this week?`,
     "Who should I follow up with this week?",
     "Draft a cold intro email for my best lead",
@@ -265,7 +265,7 @@ function ScoutPageInner() {
                   What do you need?
                 </p>
                 <p className="text-[13px] text-center mb-7" style={{ color: "#52525B" }}>
-                  Ask about leads, permits, companies, or your market. I can draft outreach too.
+                  Ask about opportunities, permits, companies, or your market. I can draft outreach too.
                 </p>
               </>
             )}

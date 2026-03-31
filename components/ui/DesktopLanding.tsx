@@ -16,7 +16,7 @@ const SCAN_MESSAGES = [
   { text: "Found recent permit activity matching your profile", color: "#F59E0B" },
   { text: "Cross-referencing relationship signals...", color: "#A78BFA" },
   { text: "Scoring each opportunity against your profile", color: "#00C875" },
-  { text: "Done — your leads are ready", color: "#00C875" },
+  { text: "Done — your opportunities are ready", color: "#00C875" },
 ];
 
 type Phase = "chat" | "loading" | "payoff";
@@ -37,7 +37,7 @@ function BLogo({ size = 14 }: { size?: number }) {
 function PhoneSetup1({ selected }: { selected: string[] }) {
   const preview = TRADE_OPTIONS.slice(0, 9);
   return (
-    <div className="flex flex-col h-full" style={{
+    <div className="relative flex flex-col h-full" style={{
       background: "#09090B",
       padding: "36px 14px 14px",
       backgroundImage: "linear-gradient(rgba(96,165,250,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.05) 1px, transparent 1px)",
@@ -48,7 +48,7 @@ function PhoneSetup1({ selected }: { selected: string[] }) {
         style={{ height: "40%", background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,200,117,0.08) 0%, transparent 70%)" }}
       />
       <p className="text-[9px] font-semibold uppercase tracking-widest mb-1 relative" style={{ color: "#52525B" }}>
-        Step 1 of 2
+        Step 1 of 3
       </p>
       <p className="text-[15px] font-bold mb-3 relative" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
         What do you sell?
@@ -71,6 +71,46 @@ function PhoneSetup1({ selected }: { selected: string[] }) {
             </span>
           );
         })}
+      </div>
+
+      {/* Construction illustration — blueprint elevation + crane */}
+      <div className="absolute bottom-0 inset-x-0 pointer-events-none" style={{ opacity: 0.09 }}>
+        <svg width="100%" viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Ground line */}
+          <line x1="0" y1="110" x2="160" y2="110" stroke="white" strokeWidth="0.8"/>
+          {/* Main building */}
+          <rect x="20" y="20" width="85" height="90" stroke="white" strokeWidth="0.8"/>
+          {/* Floor dividers */}
+          <line x1="20" y1="50" x2="105" y2="50" stroke="white" strokeWidth="0.5"/>
+          <line x1="20" y1="80" x2="105" y2="80" stroke="white" strokeWidth="0.5"/>
+          {/* Windows row 1 */}
+          <rect x="28" y="27" width="14" height="16" stroke="white" strokeWidth="0.5"/>
+          <rect x="50" y="27" width="14" height="16" stroke="white" strokeWidth="0.5"/>
+          <rect x="72" y="27" width="14" height="16" stroke="white" strokeWidth="0.5"/>
+          {/* Windows row 2 */}
+          <rect x="28" y="57" width="14" height="16" stroke="white" strokeWidth="0.5"/>
+          <rect x="50" y="57" width="14" height="16" stroke="white" strokeWidth="0.5"/>
+          <rect x="72" y="57" width="14" height="16" stroke="white" strokeWidth="0.5"/>
+          {/* Door */}
+          <rect x="50" y="87" width="18" height="23" stroke="white" strokeWidth="0.5"/>
+          {/* Crane tower */}
+          <line x1="120" y1="110" x2="120" y2="5" stroke="white" strokeWidth="1"/>
+          {/* Crane jib */}
+          <line x1="120" y1="5" x2="152" y2="5" stroke="white" strokeWidth="0.8"/>
+          <line x1="120" y1="5" x2="108" y2="5" stroke="white" strokeWidth="0.8"/>
+          {/* Crane cable */}
+          <line x1="146" y1="5" x2="146" y2="28" stroke="white" strokeWidth="0.5"/>
+          {/* Crane hook */}
+          <rect x="141" y="28" width="10" height="7" stroke="white" strokeWidth="0.5"/>
+          {/* Crane base */}
+          <line x1="115" y1="110" x2="125" y2="110" stroke="white" strokeWidth="1.5"/>
+          {/* Dimension ticks — left */}
+          <line x1="10" y1="20" x2="15" y2="20" stroke="white" strokeWidth="0.5"/>
+          <line x1="10" y1="50" x2="15" y2="50" stroke="white" strokeWidth="0.5"/>
+          <line x1="10" y1="80" x2="15" y2="80" stroke="white" strokeWidth="0.5"/>
+          <line x1="10" y1="110" x2="15" y2="110" stroke="white" strokeWidth="0.5"/>
+          <line x1="12" y1="20" x2="12" y2="110" stroke="white" strokeWidth="0.4"/>
+        </svg>
       </div>
     </div>
   );
@@ -148,7 +188,7 @@ function PhonePayoff({ trades, locations }: { trades: string[]; locations: strin
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
           }}>{leadCount}</span>
           <div>
-            <p className="text-[11px] font-semibold" style={{ color: "#F4F4F5" }}>leads found</p>
+            <p className="text-[11px] font-semibold" style={{ color: "#F4F4F5" }}>opportunities found</p>
             <p className="text-[8px]" style={{ color: "#52525B" }}>{hotCount} hot · {leadCount - hotCount} more</p>
           </div>
         </div>
@@ -182,7 +222,7 @@ function PhonePayoff({ trades, locations }: { trades: string[]; locations: strin
           <Smartphone size={14} color="white" strokeWidth={2.5} />
         </div>
         <p className="text-[9px] font-semibold text-center" style={{ color: "#F4F4F5" }}>Open on mobile</p>
-        <p className="text-[8px] text-center mt-0.5" style={{ color: "#52525B" }}>to see your leads</p>
+        <p className="text-[8px] text-center mt-0.5" style={{ color: "#52525B" }}>to see your opportunities</p>
       </div>
     </div>
   );
@@ -474,7 +514,7 @@ export default function DesktopLanding() {
                 {leadCount}
               </span>
               <div>
-                <p className="text-[22px] font-bold" style={{ color: "#F4F4F5" }}>leads found</p>
+                <p className="text-[22px] font-bold" style={{ color: "#F4F4F5" }}>opportunities found</p>
                 <p className="text-[14px]" style={{ color: "#52525B" }}>
                   {hotCount} hot · {leadCount - hotCount} more in {locations[0] || "your area"}
                 </p>

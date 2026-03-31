@@ -29,7 +29,7 @@ function BLogo({ size = 13 }: { size?: number }) {
 const QUICK_ACTIONS = [
   { label: "Draft an intro email",      icon: FileText,   query: "Draft an intro email for this lead" },
   { label: "Is this worth pursuing?",   icon: TrendingUp, query: "Is this lead worth pursuing? Give me a direct answer." },
-  { label: "Find similar leads",        icon: Search,     query: "Find me similar opportunities to this one" },
+  { label: "Find similar opportunities", icon: Search,     query: "Find me similar opportunities to this one" },
   { label: "What's my best angle?",     icon: Zap,        query: "What's the best angle for approaching this company?" },
 ];
 

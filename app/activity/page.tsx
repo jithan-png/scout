@@ -173,7 +173,7 @@ export default function ActivityPage() {
               No activity yet
             </p>
             <p className="text-[13px] mt-1" style={{ color: "#3F3F46" }}>
-              Scout will notify you when new leads are found
+              Scout will notify you when new opportunities are found
             </p>
           </div>
         )}

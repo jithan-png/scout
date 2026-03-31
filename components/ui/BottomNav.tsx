@@ -8,7 +8,7 @@ import { useAppStore } from "@/lib/store";
 const NAV_ITEMS = [
   { href: "/",              icon: Home,       label: "Home",    exact: true  },
   { href: "/scout",         icon: Sparkles,   label: "Scout",   exact: false },
-  { href: "/opportunities", icon: LayoutList, label: "Leads",   exact: false },
+  { href: "/opportunities", icon: LayoutList, label: "Opps",    exact: false },
   { href: "/activity",      icon: Bell,       label: "Activity",exact: false },
   { href: "/profile",       icon: User,       label: "Profile", exact: false },
 ];

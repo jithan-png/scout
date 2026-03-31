@@ -135,7 +135,7 @@ function ReturnUserDashboard() {
                 <line x1="1" y1="11" x2="21" y2="11" stroke="#D97706" strokeWidth="1" strokeOpacity="0.6"/>
               </svg>
               <p className="text-[17px] font-semibold leading-tight" style={{ color: "#F4F4F5" }}>
-                hot leads
+                hot opps
               </p>
             </div>
             <p className="text-[13px]" style={{ color: "#52525B" }}>
@@ -149,7 +149,7 @@ function ReturnUserDashboard() {
       <div className="grid grid-cols-2 gap-3">
         {[
           {
-            label: "Leads",
+            label: "Opportunities",
             sub: `${opportunities.length} found`,
             icon: LayoutList,
             href: "/opportunities",
@@ -171,7 +171,7 @@ function ReturnUserDashboard() {
           },
           {
             label: "Run scan",
-            sub: "Find new leads",
+            sub: "Find opportunities",
             icon: ArrowRight,
             href: "/working",
             accent: "#F59E0B",

@@ -61,7 +61,7 @@ const CONNECTION_DETAIL: Record<DataConnection["type"], { what: string; how: str
     cta: "Set up in wizard",
   },
   crm: {
-    what: "Sync BuildMapper leads back into your existing CRM so your pipeline stays in one place.",
+    what: "Sync BuildMapper opportunities back into your existing CRM so your pipeline stays in one place.",
     how: "Currently supports manual CSV export. Native CRM integrations are coming soon.",
     cta: "Coming soon",
   },

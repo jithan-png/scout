@@ -405,7 +405,7 @@ function SetupPageInner() {
               What type of projects?
             </h2>
             <p className="text-[14px] mb-2" style={{ color: "#52525B" }}>
-              Scout will prioritize leads that match your project mix.
+              Scout will prioritize opportunities that match your project mix.
             </p>
 
             {setup.projectTypes.length > 0 && (
@@ -576,7 +576,7 @@ function SetupPageInner() {
                 }
           }
         >
-          {isFinalStep ? "Find my leads" : "Next"}
+          {isFinalStep ? "Find opportunities" : "Next"}
           {canProceed && <ArrowRight size={16} strokeWidth={2.5} />}
         </button>
       </div>

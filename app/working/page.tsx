@@ -72,7 +72,7 @@ export default function WorkingPage() {
         realDataRef.current = opps.length > 0 ? opps : null;
         setLiveCount(opps.length);
         setCoverageNote(coverageNote);
-        setScoutBriefing(`Scout found ${opps.length} leads matching your profile.`);
+        setScoutBriefing(`Scout found ${opps.length} opportunities matching your profile.`);
         if (opps.length > 0) {
           setOpportunities(opps);
         }
@@ -305,7 +305,7 @@ export default function WorkingPage() {
                 {liveCount ?? (realDataRef.current?.length ?? 5)}
               </p>
               <p className="text-[20px] font-semibold" style={{ color: "#F4F4F5" }}>
-                leads found
+                opportunities found
               </p>
               <div className="flex items-center justify-center gap-4 mt-2">
                 <span className="text-[13px]" style={{ color: "#52525B" }}>
@@ -375,7 +375,7 @@ export default function WorkingPage() {
                         WhatsApp alerts on
                       </p>
                       <p className="text-[12px] mt-0.5" style={{ color: "#52525B" }}>
-                        Scout will text you when new leads arrive
+                        Scout will text you when new opportunities arrive
                       </p>
                     </div>
                   </div>
@@ -385,7 +385,7 @@ export default function WorkingPage() {
                     <div className="flex items-center gap-2.5 mb-3">
                       <MessageCircle size={15} style={{ color: "#25D366" }} strokeWidth={2} />
                       <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>
-                        Get alerted about leads like this
+                        Get alerted about opportunities like this
                       </p>
                     </div>
                     <div
@@ -458,7 +458,7 @@ export default function WorkingPage() {
               className="pressable text-[14px] font-semibold text-center py-4 mt-1"
               style={{ color: "#52525B" }}
             >
-              See all {liveCount ?? opportunities.length} leads →
+              See all {liveCount ?? opportunities.length} opportunities →
             </button>
 
           </div>

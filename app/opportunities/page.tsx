@@ -137,7 +137,7 @@ export default function OpportunitiesPage() {
               className="text-[24px] font-bold leading-tight"
               style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
             >
-              My Leads
+              My Opportunities
             </h1>
             <p className="text-[13px] mt-0.5" style={{ color: "#52525B" }}>
               {isLoadingOpportunities ? (
@@ -308,7 +308,7 @@ export default function OpportunitiesPage() {
                       boxShadow: "0 0 20px rgba(0,200,117,0.25)",
                     }}
                   >
-                    Find my leads
+                    Find opportunities
                   </button>
                 </div>
               )}
@@ -316,7 +316,7 @@ export default function OpportunitiesPage() {
               {filtered.length === 0 && (setup.completed || opportunities.length > 0) && (
                 <div className="text-center py-20">
                   <p className="text-[14px]" style={{ color: "#52525B" }}>
-                    No leads in this filter
+                    No opportunities here
                   </p>
                 </div>
               )}
