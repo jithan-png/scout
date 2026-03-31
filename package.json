@@ -17,6 +17,9 @@
     "twilio": "^5.13.1",
     "zustand": "^4.5.2"
   },
+  "overrides": {
+    "axios": "1.8.4"
+  },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
