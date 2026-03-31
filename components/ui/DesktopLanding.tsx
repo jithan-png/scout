@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight, ArrowUp, Check, Copy, MessageCircle, Smartphone } from "lucide-react";
+import { ArrowUp, Check, Copy, MessageCircle, Smartphone } from "lucide-react";
 
 const APP_URL = "buildmapper.app";
 
@@ -26,7 +26,7 @@ const CHAT_SUGGESTIONS = [
   "Plumbing across BC Interior",
 ];
 
-type Phase = "landing" | "chat" | "loading" | "payoff";
+type Phase = "chat" | "loading" | "payoff";
 
 // ── Shared logo ───────────────────────────────────────────────────────────────
 
@@ -199,7 +199,6 @@ function PhoneFrame({ phase, trades, locations }: {
         {/* Dynamic Island */}
         <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", width: 100, height: 26, borderRadius: 20, background: "#000", zIndex: 20 }} />
         <div style={{ position: "absolute", inset: 0 }}>
-          {phase === "landing"  && <PhoneSetup1 selected={[]} />}
           {phase === "chat"     && <PhoneSetup1 selected={trades} />}
           {phase === "loading"  && <PhoneWorking />}
           {phase === "payoff"   && <PhonePayoff trades={trades} locations={locations} />}
@@ -216,7 +215,7 @@ function PhoneFrame({ phase, trades, locations }: {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function DesktopLanding() {
-  const [phase, setPhase] = useState<Phase>("landing");
+  const [phase, setPhase] = useState<Phase>("chat");
   const [trades, setTrades] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
   const [scanMessages, setScanMessages] = useState<number[]>([]);
@@ -313,37 +312,6 @@ export default function DesktopLanding() {
             BuildMapper
           </span>
         </div>
-
-        {/* ── LANDING ── */}
-        {phase === "landing" && (
-          <div className="animate-fade-up">
-            <h1 className="font-bold leading-[1.1] mb-4" style={{
-              fontSize: "clamp(38px, 3.8vw, 54px)",
-              letterSpacing: "-0.035em", color: "#F4F4F5",
-            }}>
-              Scout is watching<br />
-              <span style={{ color: "#00C875" }}>your market.</span>
-            </h1>
-            <p className="text-[17px] leading-relaxed mb-10" style={{ color: "#71717A", maxWidth: 420 }}>
-              It scans live permits, maps your relationships, and tells you exactly who to call.
-            </p>
-            <button
-              onClick={() => setPhase("chat")}
-              className="pressable flex items-center gap-3 px-7 py-4 rounded-2xl text-[16px] font-semibold transition-all duration-200 mb-4"
-              style={{
-                background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-                color: "#fff",
-                boxShadow: "0 0 32px rgba(0,200,117,0.3)",
-              }}
-            >
-              Find my leads
-              <ArrowRight size={18} strokeWidth={2.5} />
-            </button>
-            <p className="text-[13px]" style={{ color: "#3F3F46" }}>
-              Takes 30 seconds · No account needed
-            </p>
-          </div>
-        )}
 
         {/* ── CHAT ONBOARDING ── */}
         {phase === "chat" && (
@@ -572,7 +540,7 @@ export default function DesktopLanding() {
             </div>
 
             <button
-              onClick={() => { setPhase("landing"); setTrades([]); setLocations([]); }}
+              onClick={() => { setPhase("chat"); setTrades([]); setLocations([]); }}
               className="text-[13px] transition-colors duration-150"
               style={{ color: "#52525B" }}
             >
