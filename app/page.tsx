@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUp } from "lucide-react";
 import { useAppStore } from "@/lib/store";
@@ -8,32 +8,42 @@ import BottomNav from "@/components/ui/BottomNav";
 import DesktopLanding from "@/components/ui/DesktopLanding";
 
 const SUGGESTIONS = [
-  "HVAC · Kelowna",
-  "Electrical · BC Interior",
-  "Framing · Okanagan",
-  "Plumbing · Penticton",
-  "Roofing · Vernon",
+  "I do HVAC and mechanical work in Kelowna",
+  "Electrical contractor, mostly the Okanagan",
+  "We do framing and structure in Vancouver",
+  "Plumbing across BC Interior",
 ];
 
 export default function HomePage() {
   const router = useRouter();
-  const { setup, setActiveIntent, startAgent, opportunities } = useAppStore();
+  const { setup, setActiveIntent, startAgent, opportunities, toggleWhatISell, toggleWhereIOperate } = useAppStore();
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
+  const [onboarding, setOnboarding] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const hotCount = opportunities.filter((o) => o.priority === "hot").length;
   const hasText = input.trim().length > 0;
 
-  useEffect(() => {
-    if (!setup.completed) router.replace("/onboarding");
-  }, [setup.completed, router]);
-
-  const handleSubmit = (text: string) => {
+  const handleSubmit = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     if (!setup.completed) {
-      router.push("/onboarding");
+      setOnboarding(true);
+      try {
+        const res = await fetch("/api/chat/parse-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: trimmed }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          (data.trades ?? []).forEach((t: string) => toggleWhatISell(t));
+          (data.cities ?? []).forEach((c: string) => toggleWhereIOperate(c));
+        }
+      } catch (_) {}
+      setOnboarding(false);
+      router.push("/setup?prefilled=true");
       return;
     }
     setActiveIntent(trimmed);
@@ -158,10 +168,10 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          /* ── First time ── */
-          <div className="mb-10">
+          /* ── First time: hero + Scout chat ── */
+          <div className="animate-fade-up">
             <h1
-              className="font-bold leading-[1.1] mb-4 animate-fade-up"
+              className="font-bold leading-[1.1] mb-3"
               style={{
                 fontSize: "clamp(34px, 8vw, 42px)",
                 letterSpacing: "-0.035em",
@@ -173,110 +183,88 @@ export default function HomePage() {
               <span style={{ color: "#00C875" }}>your market.</span>
             </h1>
             <p
-              className="text-[15px] leading-relaxed animate-fade-up delay-150"
+              className="text-[15px] leading-relaxed mb-8"
               style={{ color: "#71717A" }}
             >
               It scans live permits, maps your relationships, and tells
               you exactly who to call.
             </p>
-          </div>
-        )}
 
-        {/* ── Intent input ──────────────────────────────────────────── */}
-        <div
-          className="relative rounded-2xl transition-all duration-300 animate-fade-up delay-300"
-          style={{
-            background: "#1C1C22",
-            border: focused
-              ? "1px solid rgba(0,200,117,0.4)"
-              : "1px solid rgba(255,255,255,0.09)",
-            boxShadow: focused
-              ? "0 0 0 4px rgba(0,200,117,0.06), 0 0 28px rgba(0,200,117,0.12), 0 4px 24px rgba(0,0,0,0.5)"
-              : "0 2px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
-          }}
-        >
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              autoResize(e.target);
-            }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={handleKeyDown}
-            placeholder="What do you sell? e.g. Mechanical, Electrical, Framing"
-            rows={2}
-            className="w-full px-4 pt-4 pb-3 text-[15px] resize-none leading-relaxed"
-            style={{
-              color: "#F4F4F5",
-              background: "transparent",
-              outline: "none",
-              caretColor: "#00C875",
-            }}
-          />
+            {/* Scout greeting */}
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", boxShadow: "0 0 16px rgba(0,200,117,0.3)" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 2h5a2.5 2.5 0 0 1 0 5H3V2Z" fill="white" fillOpacity="0.95" />
+                  <path d="M3 7h5.5a2.5 2.5 0 0 1 0 5H3V7Z" fill="white" fillOpacity="0.7" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>Hey, I&apos;m Scout</p>
+                <p className="text-[12px]" style={{ color: "#52525B" }}>Tell me what you do and where you work — I&apos;ll set things up.</p>
+              </div>
+            </div>
 
-          <div className="flex items-center justify-between px-4 pb-3.5">
-            <span
-              className="text-[12px]"
-              style={{ color: "#3F3F46" }}
-            >
-              {hasText ? "Enter to search" : "e.g. HVAC · Kelowna"}
-            </span>
-
-            <button
-              onClick={() => handleSubmit(input)}
-              disabled={!hasText}
-              className="pressable flex items-center justify-center rounded-full transition-all duration-200"
-              style={{
-                width: 34,
-                height: 34,
-                background: hasText
-                  ? "linear-gradient(135deg, #00C875 0%, #00A860 100%)"
-                  : "rgba(255,255,255,0.05)",
-                boxShadow: hasText
-                  ? "0 0 14px rgba(0,200,117,0.35)"
-                  : "none",
-                color: hasText ? "#fff" : "#3F3F46",
-              }}
-            >
-              <ArrowUp size={15} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Suggestions / quick actions ────────────────────────────── */}
-        {!setup.completed && (
-          <div className="mt-6 animate-fade-up delay-500">
-            <p
-              className="text-[10px] font-semibold uppercase tracking-widest mb-3"
-              style={{ color: "#3F3F46" }}
-            >
-              Quick start
-            </p>
-            <div
-              className="flex gap-2 overflow-x-auto pb-1"
-              style={{ scrollbarWidth: "none" }}
-            >
+            {/* Suggestion pills */}
+            <div className="flex flex-col gap-2 mb-4">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
-                  onClick={() => {
-                    setInput(s);
-                    handleSubmit(s);
-                  }}
-                  className="pressable flex-shrink-0 px-3.5 py-2 rounded-full text-[13px] font-medium transition-all duration-200"
+                  onClick={() => handleSubmit(s)}
+                  className="pressable text-left px-4 py-3 rounded-2xl text-[13px] transition-all duration-150"
                   style={{
-                    background: "rgba(255,255,255,0.05)",
-                    color: "#A1A1AA",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    whiteSpace: "nowrap",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    color: "#71717A",
                   }}
                 >
                   {s}
                 </button>
               ))}
             </div>
+
+            {/* Textarea */}
+            <div
+              className="relative rounded-2xl transition-all duration-200"
+              style={{
+                background: "#1C1C22",
+                border: `1px solid ${hasText ? "rgba(0,200,117,0.3)" : "rgba(255,255,255,0.09)"}`,
+                boxShadow: hasText ? "0 0 20px rgba(0,200,117,0.08)" : "none",
+              }}
+            >
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={input}
+                onChange={(e) => { setInput(e.target.value); autoResize(e.target); }}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                onKeyDown={handleKeyDown}
+                placeholder="e.g. I do HVAC in Kelowna and the Okanagan"
+                className="w-full px-4 pt-4 pb-4 pr-14 text-[15px] bg-transparent resize-none outline-none leading-relaxed"
+                style={{ color: "#F4F4F5", caretColor: "#00C875", minHeight: 56 }}
+              />
+              <button
+                onClick={() => handleSubmit(input)}
+                disabled={!hasText || onboarding}
+                className="pressable absolute right-3 bottom-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200"
+                style={
+                  hasText && !onboarding
+                    ? { background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", boxShadow: "0 0 16px rgba(0,200,117,0.35)" }
+                    : { background: "rgba(255,255,255,0.06)" }
+                }
+              >
+                {onboarding
+                  ? <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "transparent" }} />
+                  : <ArrowUp size={15} strokeWidth={2.5} style={{ color: hasText ? "#fff" : "#52525B" }} />
+                }
+              </button>
+            </div>
+            <p className="text-[11px] text-center mt-3" style={{ color: "#3F3F46" }}>
+              You can edit everything on the next screen
+            </p>
           </div>
         )}
 

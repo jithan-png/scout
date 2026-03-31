@@ -316,6 +316,18 @@ export default function DesktopLanding() {
         {/* ── CHAT ONBOARDING ── */}
         {phase === "chat" && (
           <div key="chat" className="animate-fade-up">
+            {/* Hero copy */}
+            <h1 className="font-bold leading-[1.1] mb-4" style={{
+              fontSize: "clamp(38px, 3.8vw, 54px)",
+              letterSpacing: "-0.035em", color: "#F4F4F5",
+            }}>
+              Scout is watching<br />
+              <span style={{ color: "#00C875" }}>your market.</span>
+            </h1>
+            <p className="text-[17px] leading-relaxed mb-10" style={{ color: "#71717A", maxWidth: 420 }}>
+              It scans live permits, maps your relationships, and tells you exactly who to call.
+            </p>
+
             {/* Scout avatar + greeting */}
             <div className="flex items-center gap-3 mb-6">
               <div
