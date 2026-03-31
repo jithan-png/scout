@@ -92,7 +92,7 @@ function matchesIntent(opp: Opportunity, intent: string): boolean {
 
 export default function OpportunitiesPage() {
   const router = useRouter();
-  const { opportunities, isLoadingOpportunities, savedOpportunityIds, selectOpportunity, activeIntent, coverageNote } =
+  const { opportunities, isLoadingOpportunities, savedOpportunityIds, selectOpportunity, activeIntent, coverageNote, setup } =
     useAppStore();
   const [filter, setFilter] = useState<OpportunityPriority | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
@@ -282,7 +282,38 @@ export default function OpportunitiesPage() {
                 </div>
               ))}
 
-              {filtered.length === 0 && (
+              {filtered.length === 0 && !setup.completed && opportunities.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 animate-fade-up">
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                    style={{ background: "rgba(0,200,117,0.08)", border: "1px solid rgba(0,200,117,0.15)" }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 14 14" fill="none">
+                      <path d="M3 2h5a2.5 2.5 0 0 1 0 5H3V2Z" fill="#00C875" fillOpacity="0.9" />
+                      <path d="M3 7h5.5a2.5 2.5 0 0 1 0 5H3V7Z" fill="#00C875" fillOpacity="0.6" />
+                    </svg>
+                  </div>
+                  <p className="text-[15px] font-semibold mb-1" style={{ color: "#F4F4F5" }}>
+                    Scout hasn&apos;t searched yet
+                  </p>
+                  <p className="text-[13px] mb-6" style={{ color: "#52525B" }}>
+                    Tell Scout what you sell and where you work
+                  </p>
+                  <button
+                    onClick={() => router.push("/")}
+                    className="pressable px-6 py-3 rounded-2xl text-[14px] font-semibold"
+                    style={{
+                      background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                      color: "#fff",
+                      boxShadow: "0 0 20px rgba(0,200,117,0.25)",
+                    }}
+                  >
+                    Find my leads
+                  </button>
+                </div>
+              )}
+
+              {filtered.length === 0 && (setup.completed || opportunities.length > 0) && (
                 <div className="text-center py-20">
                   <p className="text-[14px]" style={{ color: "#52525B" }}>
                     No leads in this filter

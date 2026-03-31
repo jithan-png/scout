@@ -207,25 +207,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Suggestion pills */}
-            <div className="flex flex-col gap-2 mb-4">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleSubmit(s)}
-                  className="pressable text-left px-4 py-3 rounded-2xl text-[13px] transition-all duration-150"
-                  style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    color: "#71717A",
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            {/* Textarea */}
+            {/* Textarea — above suggestions */}
             <div
               className="relative rounded-2xl transition-all duration-200"
               style={{
@@ -262,9 +244,24 @@ export default function HomePage() {
                 }
               </button>
             </div>
-            <p className="text-[11px] text-center mt-3" style={{ color: "#3F3F46" }}>
-              You can edit everything on the next screen
-            </p>
+            {/* Suggestion pills — below textarea */}
+            <div className="flex flex-col gap-2 mt-4">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleSubmit(s)}
+                  disabled={onboarding}
+                  className="pressable text-left px-4 py-3 rounded-2xl text-[13px] transition-all duration-150"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    color: "#71717A",
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

@@ -186,12 +186,19 @@ function SetupPageInner() {
     if (currentIndex < STEPS.length - 1) {
       setSetupStep(STEPS[currentIndex + 1]);
     } else {
+      const wasAlreadyCompleted = setup.completed;
       completeSetup();
       setActiveIntent(
         `${setup.whatISell.join(", ")} in ${setup.whereIOperate.join(", ")}`
       );
-      startAgent();
-      router.push("/working");
+      if (wasAlreadyCompleted) {
+        // Editing existing config — just save and return to profile
+        router.push("/profile");
+      } else {
+        // First time setup — run Scout
+        startAgent();
+        router.push("/working");
+      }
     }
   };
 

@@ -102,6 +102,9 @@ interface AppStore {
   closeChat: () => void;
   addChatMessage: (msg: ChatMessage) => void;
   clearChat: () => void;
+
+  // Reset
+  resetStore: () => void;
 }
 
 export const useAppStore = create<AppStore>()(
@@ -278,6 +281,36 @@ export const useAppStore = create<AppStore>()(
       addChatMessage: (msg) =>
         set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
       clearChat: () => set({ chatMessages: [] }),
+
+      resetStore: () =>
+        set({
+          user: null,
+          whatsappPhone: null,
+          setup: {
+            currentStep: "what_you_sell",
+            completed: false,
+            whatISell: [],
+            whereIOperate: [],
+            projectTypes: [],
+            whatsappConnected: false,
+            contactsConnected: false,
+            emailConnected: false,
+          },
+          isAgentWorking: false,
+          agentUpdates: [],
+          agentProgress: 0,
+          activeIntent: null,
+          opportunities: [],
+          isLoadingOpportunities: false,
+          savedOpportunityIds: new Set(),
+          selectedOpportunityId: null,
+          scoutBriefing: null,
+          coverageNote: null,
+          alerts: [],
+          unreadCount: 0,
+          chatMessages: [],
+          isChatOpen: false,
+        }),
     }),
     {
       name: "buildmapper-store",

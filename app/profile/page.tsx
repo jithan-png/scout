@@ -427,9 +427,16 @@ function ScoutConfigBody() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { connections } = useAppStore();
+  const { connections, resetStore } = useAppStore();
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const [activeConn, setActiveConn] = useState<DataConnection | null>(null);
+
+  const handleSignOut = () => {
+    if (confirm("Sign out and clear all your data?")) {
+      resetStore();
+      router.push("/");
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-dvh bg-base">
@@ -478,34 +485,29 @@ export default function ProfilePage() {
           >
             App
           </p>
-          {["Privacy Policy", "Terms of Service", "Send feedback", "Sign out"].map(
-            (item) => (
-              <button
-                key={item}
-                className="pressable flex items-center justify-between px-4 py-3.5 rounded-xl"
-                style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.05)",
-                }}
-              >
-                <span
-                  className="text-[14px]"
-                  style={{
-                    color: item === "Sign out" ? "#EF4444" : "#71717A",
-                  }}
-                >
-                  {item}
-                </span>
-                {item !== "Sign out" && (
-                  <ChevronRight
-                    size={14}
-                    style={{ color: "#3F3F46" }}
-                    strokeWidth={1.5}
-                  />
-                )}
-              </button>
-            )
-          )}
+          {["Privacy Policy", "Terms of Service", "Send feedback"].map((item) => (
+            <button
+              key={item}
+              className="pressable flex items-center justify-between px-4 py-3.5 rounded-xl"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              <span className="text-[14px]" style={{ color: "#71717A" }}>{item}</span>
+              <ChevronRight size={14} style={{ color: "#3F3F46" }} strokeWidth={1.5} />
+            </button>
+          ))}
+          <button
+            onClick={handleSignOut}
+            className="pressable flex items-center px-4 py-3.5 rounded-xl"
+            style={{
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.05)",
+            }}
+          >
+            <span className="text-[14px]" style={{ color: "#EF4444" }}>Sign out</span>
+          </button>
         </div>
 
         <p

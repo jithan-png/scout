@@ -54,7 +54,9 @@ export default function WorkingPage() {
   const router = useRouter();
   const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, setCoverageNote, setOpportunities, opportunities, setWhatsappPhone, whatsappPhone } =
     useAppStore();
-  const [done, setDone] = useState(false);
+  const [animationDone, setAnimationDone] = useState(false);
+  const [apiDone, setApiDone] = useState(false);
+  const done = animationDone && apiDone;
   const [showTyping, setShowTyping] = useState(true);
   const [liveCount, setLiveCount] = useState<number | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
@@ -71,14 +73,14 @@ export default function WorkingPage() {
         setLiveCount(opps.length);
         setCoverageNote(coverageNote);
         setScoutBriefing(`Scout found ${opps.length} leads matching your profile.`);
-        // Always push real data into the store when it arrives — animation may have
-        // already finished before the API returned (pipeline can take 30–60s).
         if (opps.length > 0) {
           setOpportunities(opps);
         }
+        setApiDone(true);
       })
       .catch(() => {
         realDataRef.current = null;
+        setApiDone(true); // fail gracefully — still show done state
       });
 
     const timings = [700, 1700, 2900, 4100, 5500];
@@ -90,7 +92,7 @@ export default function WorkingPage() {
         if (i === MOCK_AGENT_UPDATES.length - 1) {
           setTimeout(() => {
             finishAgent(realDataRef.current ?? undefined);
-            setDone(true);
+            setAnimationDone(true);
           }, 900);
         }
       }, timings[i])
@@ -263,6 +265,24 @@ export default function WorkingPage() {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Still waiting for API ──────────────────────────────────── */}
+        {animationDone && !apiDone && (
+          <div className="text-center animate-fade-up">
+            <p className="text-[16px] font-semibold mb-2" style={{ color: "#F4F4F5" }}>
+              Scout is still searching...
+            </p>
+            <p className="text-[13px]" style={{ color: "#52525B" }}>
+              This can take up to 60 seconds
+            </p>
+            <div className="flex justify-center gap-1.5 mt-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="w-1.5 h-1.5 rounded-full animate-typing"
+                  style={{ background: "#3F3F46", animationDelay: `${i * 0.2}s` }} />
+              ))}
+            </div>
           </div>
         )}
 
