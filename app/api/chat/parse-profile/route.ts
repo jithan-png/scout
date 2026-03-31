@@ -16,6 +16,17 @@ const KNOWN_TRADES = [
   "Materials & Supply",
 ];
 
+const KNOWN_PROJECT_TYPES = [
+  "Single Family",
+  "Multi-Family",
+  "Commercial",
+  "Industrial",
+  "Institutional",
+  "Mixed Use",
+  "Renovations / Retrofit",
+  "Any / All",
+];
+
 export async function POST(req: NextRequest) {
   const { message } = await req.json();
   if (!message?.trim()) {
@@ -24,18 +35,20 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ trades: [], cities: [] });
+    return NextResponse.json({ trades: [], cities: [], projectTypes: [] });
   }
 
   const client = new Anthropic({ apiKey });
 
   const system =
     `You are a profile parser for a construction lead intelligence app. ` +
-    `Extract the user's trade/service category and geographic area(s) from their message. ` +
+    `Extract the user's trade/service category, geographic area(s), and project types from their message. ` +
     `Map trades to the closest match from this list (return the exact label): ${JSON.stringify(KNOWN_TRADES)}. ` +
-    `If no close match exists, use the user's own words. ` +
+    `If no close trade match exists, use the user's own words. ` +
+    `Map project types to the closest match from this list (return the exact label): ${JSON.stringify(KNOWN_PROJECT_TYPES)}. ` +
+    `Only include project types if the user explicitly mentions them; return an empty array otherwise. ` +
     `Cities/regions should be returned as the user wrote them (proper case). ` +
-    `Return ONLY valid JSON: {"trades": [...], "cities": [...]}. No explanation.`;
+    `Return ONLY valid JSON: {"trades": [...], "cities": [...], "projectTypes": [...]}. No explanation.`;
 
   try {
     const response = await client.messages.create({
@@ -54,9 +67,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       trades: data.trades ?? [],
       cities: data.cities ?? [],
+      projectTypes: data.projectTypes ?? [],
     });
   } catch (err) {
     console.warn("parse-profile failed:", err);
-    return NextResponse.json({ trades: [], cities: [] });
+    return NextResponse.json({ trades: [], cities: [], projectTypes: [] });
   }
 }

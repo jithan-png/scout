@@ -1,115 +1,161 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { MessageCircle, X, ArrowUp } from "lucide-react";
-import { useAppStore } from "@/lib/store";
+import { X, ArrowUp, Zap, FileText, TrendingUp, Search } from "lucide-react";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 interface FloatingChatProps {
-  /** Optional context string passed to Scout (e.g. lead name + value) */
+  /** Context string passed to Scout — e.g. lead name, company, value */
   context?: string;
 }
 
-export default function FloatingChat({ context = "" }: FloatingChatProps) {
-  const { isChatOpen, openChat, closeChat, chatMessages, addChatMessage, clearChat } =
-    useAppStore();
+// ── Scout logo ────────────────────────────────────────────────────────────────
 
+function BLogo({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+      <path d="M3 2h5a2.5 2.5 0 0 1 0 5H3V2Z" fill="white" fillOpacity="0.95" />
+      <path d="M3 7h5.5a2.5 2.5 0 0 1 0 5H3V7Z" fill="white" fillOpacity="0.7" />
+    </svg>
+  );
+}
+
+// ── Quick action chips ────────────────────────────────────────────────────────
+
+const QUICK_ACTIONS = [
+  { label: "Draft an intro email",      icon: FileText,   query: "Draft an intro email for this lead" },
+  { label: "Is this worth pursuing?",   icon: TrendingUp, query: "Is this lead worth pursuing? Give me a direct answer." },
+  { label: "Find similar leads",        icon: Search,     query: "Find me similar opportunities to this one" },
+  { label: "What's my best angle?",     icon: Zap,        query: "What's the best angle for approaching this company?" },
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export default function FloatingChat({ context = "" }: FloatingChatProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Scroll to bottom when new messages arrive
+  const hasText = input.trim().length > 0;
+
+  // Scroll to bottom on new messages
   useEffect(() => {
-    if (isChatOpen) {
+    if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chatMessages, isChatOpen]);
+  }, [messages, isOpen]);
 
-  // Focus input when chat opens
+  // Focus input when sheet opens
   useEffect(() => {
-    if (isChatOpen) {
+    if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
-  }, [isChatOpen]);
+  }, [isOpen]);
+
+  const handleOpen = () => {
+    setMessages([]);
+    setInput("");
+    setIsOpen(true);
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setInput("");
+  };
 
   const autoResize = (el: HTMLTextAreaElement) => {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 100) + "px";
   };
 
-  const handleOpen = () => {
-    clearChat();
-    openChat();
-  };
-
-  const handleClose = () => {
-    closeChat();
-    setInput("");
-  };
-
-  const handleSend = async () => {
-    const trimmed = input.trim();
+  const handleSend = async (text?: string) => {
+    const trimmed = (text ?? input).trim();
     if (!trimmed || isTyping) return;
 
-    addChatMessage({ role: "user", content: trimmed });
+    const userMsg: ChatMessage = { role: "user", content: trimmed };
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-    }
+    if (inputRef.current) inputRef.current.style.height = "auto";
     setIsTyping(true);
 
     try {
-      const res = await fetch(`/api/chat/message`, {
+      const res = await fetch("/api/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
           context,
-          history: chatMessages.slice(-6),
+          history: messages.slice(-6),
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        addChatMessage({ role: "assistant", content: data.reply });
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
       } else {
-        addChatMessage({ role: "assistant", content: "Something went wrong. Try again." });
+        setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Try again." }]);
       }
     } catch {
-      addChatMessage({ role: "assistant", content: "Scout is offline right now." });
+      setMessages((prev) => [...prev, { role: "assistant", content: "Scout is offline right now." }]);
     }
 
     setIsTyping(false);
   };
 
-  const hasText = input.trim().length > 0;
-
   return (
     <>
-      {/* ── Floating button (always visible when closed) ── */}
-      {!isChatOpen && (
+      {/* ── FAB — Scout logo, not generic chat icon ── */}
+      {!isOpen && (
         <button
           onClick={handleOpen}
           className="pressable fixed z-50 flex items-center justify-center rounded-full"
           style={{
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)",
-            right: 20,
-            width: 52,
-            height: 52,
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)",
+            right: 18,
+            width: 50,
+            height: 50,
             background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
             boxShadow: "0 0 24px rgba(0,200,117,0.45), 0 4px 16px rgba(0,0,0,0.4)",
             animation: "glowBreathe 3s ease-in-out infinite",
           }}
         >
-          <MessageCircle size={22} color="white" strokeWidth={2} />
+          <BLogo size={20} />
+          {/* Amber action spark */}
+          <span
+            style={{
+              position: "absolute",
+              top: 3,
+              right: 3,
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%)",
+              border: "1.5px solid #09090B",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <svg width="5" height="5" viewBox="0 0 10 10" fill="none">
+              <path d="M6 1L3 5.5h3L4 9l3-4.5H4L6 1z" fill="#09090B" strokeWidth="0" />
+            </svg>
+          </span>
         </button>
       )}
 
-      {/* ── Chat sheet (slide up when open) ── */}
+      {/* ── Chat sheet ── */}
       <div
         className="fixed inset-x-0 bottom-0 z-50 flex flex-col transition-transform duration-300"
         style={{
           height: "82dvh",
-          transform: isChatOpen ? "translateY(0)" : "translateY(100%)",
+          transform: isOpen ? "translateY(0)" : "translateY(100%)",
           background: "#111114",
           borderTop: "1px solid rgba(255,255,255,0.08)",
           borderRadius: "20px 20px 0 0",
@@ -118,28 +164,28 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-4"
+          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
           style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         >
           <div className="flex items-center gap-2.5">
             <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)" }}
+              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{
+                background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                boxShadow: "0 0 14px rgba(0,200,117,0.3)",
+              }}
             >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                <path d="M3 2h5a2.5 2.5 0 0 1 0 5H3V2Z" fill="white" fillOpacity="0.95" />
-                <path d="M3 7h5.5a2.5 2.5 0 0 1 0 5H3V7Z" fill="white" fillOpacity="0.7" />
-              </svg>
+              <BLogo size={14} />
             </div>
             <div>
-              <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>
-                Ask Scout
+              <p className="text-[14px] font-semibold leading-tight" style={{ color: "#F4F4F5" }}>
+                Scout
               </p>
-              {context && (
-                <p className="text-[11px] truncate max-w-[220px]" style={{ color: "#52525B" }}>
-                  {context}
-                </p>
-              )}
+              <p className="text-[11px] leading-tight" style={{ color: "#52525B" }}>
+                {context
+                  ? `Context: ${context}`
+                  : "Searches web · Drafts outreach · Takes actions"}
+              </p>
             </div>
           </div>
           <button
@@ -153,46 +199,57 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-          {chatMessages.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
-              <p className="text-[14px] font-semibold mb-1" style={{ color: "#F4F4F5" }}>
-                What can I help you with?
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center text-center px-4 py-8">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
+                style={{
+                  background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+                  boxShadow: "0 0 20px rgba(0,200,117,0.3)",
+                }}
+              >
+                <BLogo size={20} />
+              </div>
+              <p className="text-[14px] font-semibold mb-1.5" style={{ color: "#F4F4F5" }}>
+                What do you need?
               </p>
-              <p className="text-[13px] leading-relaxed" style={{ color: "#52525B" }}>
-                Draft an email, assess this lead, or ask about next steps.
+              <p className="text-[12px] leading-relaxed mb-6" style={{ color: "#52525B" }}>
+                Scout can search the web, analyze this lead,
+                draft outreach, or find similar opportunities.
               </p>
-              {/* Quick prompt suggestions */}
-              <div className="flex flex-col gap-2 mt-5 w-full">
-                {[
-                  "Draft me an intro email for this lead",
-                  "Is this worth pursuing?",
-                  "What's my best angle here?",
-                ].map((s) => (
+              {/* Action chips */}
+              <div className="flex flex-col gap-2 w-full text-left">
+                {QUICK_ACTIONS.map(({ label, icon: Icon, query }) => (
                   <button
-                    key={s}
-                    onClick={() => {
-                      setInput(s);
-                      setTimeout(() => inputRef.current?.focus(), 50);
-                    }}
-                    className="pressable text-left px-3.5 py-2.5 rounded-xl text-[13px]"
+                    key={label}
+                    onClick={() => handleSend(query)}
+                    className="pressable flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] transition-all duration-150"
                     style={{
                       background: "rgba(255,255,255,0.04)",
                       border: "1px solid rgba(255,255,255,0.07)",
-                      color: "#71717A",
                     }}
                   >
-                    {s}
+                    <Icon size={13} style={{ color: "#00C875", flexShrink: 0 }} strokeWidth={2} />
+                    <span style={{ color: "#A1A1AA" }}>{label}</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {chatMessages.map((msg, i) => (
+          {messages.map((msg, i) => (
             <div
               key={i}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
+              {msg.role === "assistant" && (
+                <div
+                  className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5"
+                  style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)" }}
+                >
+                  <BLogo size={11} />
+                </div>
+              )}
               <div
                 className="max-w-[85%] px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed"
                 style={
@@ -207,6 +264,7 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
                         border: "1px solid rgba(255,255,255,0.07)",
                         color: "#E4E4E7",
                         borderBottomLeftRadius: 6,
+                        whiteSpace: "pre-wrap",
                       }
                 }
               >
@@ -217,6 +275,12 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
 
           {isTyping && (
             <div className="flex justify-start">
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5"
+                style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)" }}
+              >
+                <BLogo size={11} />
+              </div>
               <div
                 className="px-3.5 py-2.5 rounded-2xl"
                 style={{
@@ -229,11 +293,10 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
                   {[0, 1, 2].map((i) => (
                     <div
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full animate-bounce"
+                      className="w-1.5 h-1.5 rounded-full"
                       style={{
                         background: "#52525B",
-                        animationDelay: `${i * 150}ms`,
-                        animationDuration: "900ms",
+                        animation: `typing 1.4s ease ${i * 0.2}s infinite`,
                       }}
                     />
                   ))}
@@ -247,7 +310,7 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
 
         {/* Input */}
         <div
-          className="px-4 pb-safe"
+          className="px-4 flex-shrink-0"
           style={{
             paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
             borderTop: "1px solid rgba(255,255,255,0.07)",
@@ -280,7 +343,7 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
               style={{ color: "#F4F4F5", caretColor: "#00C875", minHeight: 48 }}
             />
             <button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!hasText || isTyping}
               className="pressable absolute right-2.5 bottom-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200"
               style={
@@ -299,7 +362,7 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
       </div>
 
       {/* Backdrop */}
-      {isChatOpen && (
+      {isOpen && (
         <div
           className="fixed inset-0 z-40"
           style={{ background: "rgba(0,0,0,0.5)" }}

@@ -23,6 +23,19 @@ const TRADE_OPTIONS = [
   "Other",
 ];
 
+// ── Project type options ──────────────────────────────────────────────────────
+
+const PROJECT_TYPE_OPTIONS = [
+  "Single Family",
+  "Multi-Family",
+  "Commercial",
+  "Industrial",
+  "Institutional",
+  "Mixed Use",
+  "Renovations / Retrofit",
+  "Any / All",
+];
+
 // ── Location suggestions (quick-start only — not exhaustive) ─────────────────
 
 const LOCATION_SUGGESTIONS = [
@@ -32,7 +45,7 @@ const LOCATION_SUGGESTIONS = [
 
 // ── Wizard steps ──────────────────────────────────────────────────────────────
 
-const STEPS: SetupStep[] = ["what_you_sell", "where_you_operate"];
+const STEPS: SetupStep[] = ["what_you_sell", "where_you_operate", "project_types"];
 
 const STEP_INDEX: Record<SetupStep, number> = {
   what_you_sell:    0,
@@ -131,6 +144,7 @@ function SetupPageInner() {
     completeSetup,
     toggleWhatISell,
     toggleWhereIOperate,
+    toggleProjectType,
     startAgent,
     setActiveIntent,
   } = useAppStore();
@@ -189,7 +203,7 @@ function SetupPageInner() {
       const wasAlreadyCompleted = setup.completed;
       completeSetup();
       setActiveIntent(
-        `${setup.whatISell.join(", ")} in ${setup.whereIOperate.join(", ")}`
+        `${setup.whatISell.join(", ")} in ${setup.whereIOperate.join(", ")}${setup.projectTypes.length > 0 ? ` — ${setup.projectTypes.join(", ")}` : ""}`
       );
       if (wasAlreadyCompleted) {
         // Editing existing config — just save and return to profile
@@ -218,8 +232,15 @@ function SetupPageInner() {
   // Step 2 valid: at least one location added
   const step2Valid = setup.whereIOperate.length > 0;
 
+  // Step 3 valid: at least one project type selected
+  const step3Valid = setup.projectTypes.length > 0;
+
   const canProceed =
-    setup.currentStep === "what_you_sell" ? step1Valid : step2Valid;
+    setup.currentStep === "what_you_sell"
+      ? step1Valid
+      : setup.currentStep === "where_you_operate"
+      ? step2Valid
+      : step3Valid;
 
   const isFinalStep = currentIndex === STEPS.length - 1;
 
@@ -259,22 +280,26 @@ function SetupPageInner() {
         </button>
 
         {/* Progress track */}
-        <div className="flex-1 flex items-center gap-1.5 mr-4">
+        <div className="flex-1 flex items-center mr-4">
           {STEPS.map((_, i) => (
-            <div
-              key={i}
-              className="rounded-full transition-all duration-500"
-              style={{
-                height: 3,
-                flex: i === currentIndex ? "1.8" : "1",
-                background:
-                  i < currentIndex
-                    ? "rgba(0,200,117,0.5)"
-                    : i === currentIndex
-                    ? "#00C875"
-                    : "rgba(255,255,255,0.07)",
-              }}
-            />
+            <div key={i} className="flex items-center" style={{ flex: i === currentIndex ? "1.8" : "1" }}>
+              {i > 0 && (
+                <div style={{ width: 1, height: 8, background: "rgba(255,255,255,0.15)", flexShrink: 0 }} />
+              )}
+              <div
+                className="transition-all duration-500"
+                style={{
+                  flex: 1,
+                  height: 3,
+                  background:
+                    i < currentIndex
+                      ? "rgba(0,200,117,0.5)"
+                      : i === currentIndex
+                      ? "#00C875"
+                      : "rgba(255,255,255,0.07)",
+                }}
+              />
+            </div>
           ))}
         </div>
 
@@ -282,7 +307,7 @@ function SetupPageInner() {
           className="text-[12px] font-semibold flex-shrink-0"
           style={{ color: "#52525B" }}
         >
-          {currentIndex === 0 ? "Step 1 of 2 · 20 sec" : "Step 2 of 2"}
+          {currentIndex === 0 ? "Step 1 of 3 · 20 sec" : currentIndex === 1 ? "Step 2 of 3" : "Step 3 of 3"}
         </span>
       </header>
 
@@ -367,6 +392,43 @@ function SetupPageInner() {
                 />
               </div>
             )}
+          </>
+        )}
+
+        {/* ── Step 3: Project types ── */}
+        {setup.currentStep === "project_types" && (
+          <>
+            <h2
+              className="text-[28px] font-bold leading-tight mb-1"
+              style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
+            >
+              What type of projects?
+            </h2>
+            <p className="text-[14px] mb-2" style={{ color: "#52525B" }}>
+              Scout will prioritize leads that match your project mix.
+            </p>
+
+            {setup.projectTypes.length > 0 && (
+              <p
+                className="text-[12px] font-semibold mb-5 animate-fade-in"
+                style={{ color: "#00C875" }}
+              >
+                {setup.projectTypes.length} selected
+              </p>
+            )}
+            {setup.projectTypes.length === 0 && <div className="mb-5" />}
+
+            <div className="flex flex-wrap gap-2">
+              {PROJECT_TYPE_OPTIONS.map((opt, i) => (
+                <SelectionChip
+                  key={opt}
+                  label={opt}
+                  selected={setup.projectTypes.includes(opt)}
+                  onClick={() => toggleProjectType(opt)}
+                  index={i}
+                />
+              ))}
+            </div>
           </>
         )}
 

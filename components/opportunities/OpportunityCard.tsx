@@ -19,6 +19,24 @@ function ScoreRing({ score }: { score: number }) {
         height="44"
         style={{ position: "absolute", transform: "rotate(-90deg)" }}
       >
+        {/* Tick marks — like a gauge dial */}
+        {Array.from({ length: 8 }, (_, i) => {
+          const angle = (i * Math.PI * 2) / 8;
+          const cos = Math.cos(angle);
+          const sin = Math.sin(angle);
+          return (
+            <line
+              key={i}
+              x1={22 + 19 * cos}
+              y1={22 + 19 * sin}
+              x2={22 + 21.5 * cos}
+              y2={22 + 21.5 * sin}
+              stroke="rgba(255,255,255,0.14)"
+              strokeWidth="1"
+              strokeLinecap="round"
+            />
+          );
+        })}
         <circle
           cx="22"
           cy="22"
@@ -182,7 +200,7 @@ export default function OpportunityCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       <div
-        className="rounded-2xl p-4 transition-all duration-200"
+        className="rounded-2xl p-4 transition-all duration-200 relative overflow-hidden"
         style={{
           background: "#1C1C22",
           border: "1px solid rgba(255,255,255,0.07)",
@@ -190,6 +208,16 @@ export default function OpportunityCard({
             "0 1px 1px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
       >
+        {/* Engineering drawing corner brackets */}
+        {[
+          { top: 6, left: 6, borderTop: "1px solid rgba(255,255,255,0.1)", borderLeft: "1px solid rgba(255,255,255,0.1)" },
+          { top: 6, right: 6, borderTop: "1px solid rgba(255,255,255,0.1)", borderRight: "1px solid rgba(255,255,255,0.1)" },
+          { bottom: 6, left: 6, borderBottom: "1px solid rgba(255,255,255,0.1)", borderLeft: "1px solid rgba(255,255,255,0.1)" },
+          { bottom: 6, right: 6, borderBottom: "1px solid rgba(255,255,255,0.1)", borderRight: "1px solid rgba(255,255,255,0.1)" },
+        ].map((s, i) => (
+          <div key={i} style={{ position: "absolute", width: 10, height: 10, pointerEvents: "none", ...s }} />
+        ))}
+
         {/* ── Top row ─── */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">

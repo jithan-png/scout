@@ -19,13 +19,6 @@ const SCAN_MESSAGES = [
   { text: "Done — your leads are ready", color: "#00C875" },
 ];
 
-const CHAT_SUGGESTIONS = [
-  "I do HVAC and mechanical work in Kelowna",
-  "Electrical contractor, mostly the Okanagan",
-  "We do framing and structure in Vancouver",
-  "Plumbing across BC Interior",
-];
-
 type Phase = "chat" | "loading" | "payoff";
 
 // ── Shared logo ───────────────────────────────────────────────────────────────
@@ -44,7 +37,12 @@ function BLogo({ size = 14 }: { size?: number }) {
 function PhoneSetup1({ selected }: { selected: string[] }) {
   const preview = TRADE_OPTIONS.slice(0, 9);
   return (
-    <div className="flex flex-col h-full" style={{ background: "#09090B", padding: "36px 14px 14px" }}>
+    <div className="flex flex-col h-full" style={{
+      background: "#09090B",
+      padding: "36px 14px 14px",
+      backgroundImage: "linear-gradient(rgba(96,165,250,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.05) 1px, transparent 1px)",
+      backgroundSize: "12px 12px",
+    }}>
       <div
         className="absolute inset-x-0 top-0 pointer-events-none"
         style={{ height: "40%", background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,200,117,0.08) 0%, transparent 70%)" }}
@@ -80,7 +78,11 @@ function PhoneSetup1({ selected }: { selected: string[] }) {
 
 function PhoneWorking() {
   return (
-    <div className="flex flex-col h-full items-center justify-center gap-4 relative" style={{ background: "#09090B" }}>
+    <div className="flex flex-col h-full items-center justify-center gap-4 relative" style={{
+      background: "#09090B",
+      backgroundImage: "linear-gradient(rgba(96,165,250,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.04) 1px, transparent 1px)",
+      backgroundSize: "12px 12px",
+    }}>
       <div
         className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 80% 60% at 50% 45%, rgba(0,200,117,0.08) 0%, transparent 70%)" }}
@@ -118,7 +120,12 @@ function PhonePayoff({ trades, locations }: { trades: string[]; locations: strin
   const leadCount = Math.min(3 + trades.length + locations.length, 12);
   const hotCount = Math.max(2, Math.floor(leadCount * 0.4));
   return (
-    <div className="flex flex-col h-full relative" style={{ background: "#09090B", padding: "22px 14px 14px" }}>
+    <div className="flex flex-col h-full relative" style={{
+      background: "#09090B",
+      padding: "22px 14px 14px",
+      backgroundImage: "linear-gradient(rgba(96,165,250,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.04) 1px, transparent 1px)",
+      backgroundSize: "12px 12px",
+    }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1.5">
@@ -183,10 +190,14 @@ function PhonePayoff({ trades, locations }: { trades: string[]; locations: strin
 
 // ── Phone frame ───────────────────────────────────────────────────────────────
 
-function PhoneFrame({ phase, trades, locations }: {
+const DEMO_TRADES = ["Mechanical / HVAC"];
+const DEMO_LOCATIONS = ["Kelowna"];
+
+function PhoneFrame({ phase, trades, locations, slideOverride }: {
   phase: Phase;
   trades: string[];
   locations: string[];
+  slideOverride?: number;
 }) {
   return (
     <div style={{
@@ -198,8 +209,10 @@ function PhoneFrame({ phase, trades, locations }: {
       <div style={{ borderRadius: 38, width: "100%", height: "100%", background: "#09090B", overflow: "hidden", position: "relative" }}>
         {/* Dynamic Island */}
         <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", width: 100, height: 26, borderRadius: 20, background: "#000", zIndex: 20 }} />
-        <div style={{ position: "absolute", inset: 0 }}>
-          {phase === "chat"     && <PhoneSetup1 selected={trades} />}
+        <div style={{ position: "absolute", inset: 0, transition: "opacity 0.4s ease" }}>
+          {phase === "chat" && slideOverride === 0 && <PhoneSetup1 selected={DEMO_TRADES} />}
+          {phase === "chat" && slideOverride === 1 && <PhoneWorking />}
+          {phase === "chat" && slideOverride === 2 && <PhonePayoff trades={DEMO_TRADES} locations={DEMO_LOCATIONS} />}
           {phase === "loading"  && <PhoneWorking />}
           {phase === "payoff"   && <PhonePayoff trades={trades} locations={locations} />}
         </div>
@@ -225,7 +238,16 @@ export default function DesktopLanding() {
   const [smsSending, setSmsSending] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [phoneSlide, setPhoneSlide] = useState(0);
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Phone slide cycle during chat phase
+  useEffect(() => {
+    if (phase !== "chat") return;
+    setPhoneSlide(0);
+    const id = setInterval(() => setPhoneSlide((s) => (s + 1) % 3), 3000);
+    return () => clearInterval(id);
+  }, [phase]);
 
   // Loading sequence
   useEffect(() => {
@@ -325,7 +347,7 @@ export default function DesktopLanding() {
               <span style={{ color: "#00C875" }}>your market.</span>
             </h1>
             <p className="text-[17px] leading-relaxed mb-10" style={{ color: "#71717A", maxWidth: 420 }}>
-              It scans live permits, maps your relationships, and tells you exactly who to call.
+              It scans permits, tenders, LinkedIn, and the web — then maps your fastest path to winning each opportunity.
             </p>
 
             {/* Scout avatar + greeting */}
@@ -341,11 +363,11 @@ export default function DesktopLanding() {
               </div>
               <div>
                 <p className="text-[16px] font-semibold" style={{ color: "#F4F4F5" }}>Hey, I&apos;m Scout</p>
-                <p className="text-[13px]" style={{ color: "#52525B" }}>Tell me what you do and where you work — I&apos;ll set things up.</p>
+                <p className="text-[13px]" style={{ color: "#52525B" }}>Tell me what you do and where — I&apos;ll set up your profile to get started.</p>
               </div>
             </div>
 
-            {/* Textarea + send — above suggestion pills */}
+            {/* Textarea + send */}
             <div
               className="relative rounded-2xl transition-all duration-200 mb-4"
               style={{
@@ -360,9 +382,9 @@ export default function DesktopLanding() {
                 value={chatInput}
                 onChange={(e) => { setChatInput(e.target.value); autoResizeChat(e.target); }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleChatSubmit(chatInput); } }}
-                placeholder="e.g. I do HVAC in Kelowna and the Okanagan"
+                placeholder="e.g. I do HVAC in Kelowna — mostly commercial and multi-family projects"
                 className="w-full px-4 pt-4 pb-4 pr-14 text-[15px] bg-transparent resize-none outline-none leading-relaxed"
-                style={{ color: "#F4F4F5", caretColor: "#00C875", minHeight: 56 }}
+                style={{ color: "#F4F4F5", caretColor: "#00C875", minHeight: 80 }}
               />
               <button
                 onClick={() => handleChatSubmit(chatInput)}
@@ -381,24 +403,6 @@ export default function DesktopLanding() {
               </button>
             </div>
 
-            {/* Suggestion pills — below textarea */}
-            <div className="flex flex-col gap-2">
-              {CHAT_SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleChatSubmit(s)}
-                  disabled={chatLoading}
-                  className="pressable text-left px-4 py-3 rounded-2xl text-[13px] transition-all duration-150"
-                  style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    color: "#71717A",
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
@@ -562,16 +566,20 @@ export default function DesktopLanding() {
       {/* ── Right column — phone ─────────────────────────────────────── */}
       <div className="hidden lg:flex flex-1 items-center justify-center relative">
         <div className="absolute inset-0 pointer-events-none" style={{
-          opacity: 0.025,
-          backgroundImage: "radial-gradient(rgba(255,255,255,0.8) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
+          backgroundImage: [
+            "linear-gradient(rgba(96,165,250,0.06) 1px, transparent 1px)",
+            "linear-gradient(90deg, rgba(96,165,250,0.06) 1px, transparent 1px)",
+            "linear-gradient(rgba(96,165,250,0.025) 1px, transparent 1px)",
+            "linear-gradient(90deg, rgba(96,165,250,0.025) 1px, transparent 1px)",
+          ].join(", "),
+          backgroundSize: "80px 80px, 80px 80px, 20px 20px, 20px 20px",
         }} />
         <div className="absolute rounded-full pointer-events-none" style={{
           width: 340, height: 340,
           background: "radial-gradient(circle, rgba(0,200,117,0.07) 0%, transparent 70%)",
         }} />
         <div style={{ animation: "float 7s ease-in-out infinite" }}>
-          <PhoneFrame phase={phase} trades={trades} locations={locations} />
+          <PhoneFrame phase={phase} trades={trades} locations={locations} slideOverride={phoneSlide} />
         </div>
       </div>
     </div>
