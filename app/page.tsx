@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUp } from "lucide-react";
 import { useAppStore } from "@/lib/store";
@@ -24,6 +24,10 @@ export default function HomePage() {
 
   const hotCount = opportunities.filter((o) => o.priority === "hot").length;
   const hasText = input.trim().length > 0;
+
+  useEffect(() => {
+    if (!setup.completed) router.replace("/onboarding");
+  }, [setup.completed, router]);
 
   const handleSubmit = (text: string) => {
     const trimmed = text.trim();
