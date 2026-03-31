@@ -296,6 +296,9 @@ export default function DesktopLanding() {
   const [locationError, setLocationError] = useState("");
   const [scanMessages, setScanMessages] = useState<number[]>([]);
   const [copied, setCopied] = useState(false);
+  const [smsPhone, setSmsPhone] = useState("");
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsSending, setSmsSending] = useState(false);
   const locationInputRef = useRef<HTMLInputElement>(null);
 
   // Loading sequence
@@ -342,7 +345,19 @@ export default function DesktopLanding() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSMS = () => window.open(`sms:?body=Check out BuildMapper Scout — ${APP_URL}`);
+  const handleSMS = async () => {
+    if (!smsPhone.trim() || smsSending) return;
+    setSmsSending(true);
+    try {
+      await fetch("/api/notify/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: smsPhone.trim() }),
+      });
+    } catch (_) {}
+    setSmsSent(true);
+    setSmsSending(false);
+  };
 
   const unusedSuggestions = LOCATION_SUGGESTIONS.filter(
     (s) => !locations.map((l) => l.toLowerCase()).includes(s.toLowerCase())
@@ -680,17 +695,45 @@ export default function DesktopLanding() {
               </div>
 
               {/* SMS CTA */}
-              <button
-                onClick={handleSMS}
-                className="pressable w-full py-4 rounded-xl text-[16px] font-semibold flex items-center justify-center gap-2 transition-all duration-200"
-                style={{
-                  background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-                  color: "#fff", boxShadow: "0 0 28px rgba(0,200,117,0.25)",
-                }}
-              >
-                <MessageCircle size={18} />
-                Text me the link
-              </button>
+              {smsSent ? (
+                <div
+                  className="w-full py-4 rounded-xl text-[15px] font-semibold flex items-center justify-center gap-2"
+                  style={{ background: "rgba(0,200,117,0.1)", color: "#34D399", border: "1px solid rgba(0,200,117,0.2)" }}
+                >
+                  <Check size={16} />
+                  Link sent to your phone
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    value={smsPhone}
+                    onChange={(e) => setSmsPhone(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSMS()}
+                    placeholder="Your phone number"
+                    className="flex-1 px-4 py-3 rounded-xl text-[14px]"
+                    style={{
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      color: "#F4F4F5",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    onClick={handleSMS}
+                    disabled={!smsPhone.trim() || smsSending}
+                    className="pressable flex items-center gap-2 px-4 py-3 rounded-xl text-[14px] font-semibold transition-all duration-200 flex-shrink-0"
+                    style={
+                      smsPhone.trim()
+                        ? { background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,200,117,0.25)" }
+                        : { background: "rgba(255,255,255,0.05)", color: "#52525B" }
+                    }
+                  >
+                    <MessageCircle size={15} />
+                    {smsSending ? "Sending…" : "Text me"}
+                  </button>
+                </div>
+              )}
             </div>
 
             <button
