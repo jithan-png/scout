@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowRight, Check, Copy, MessageCircle, Plus, Smartphone, X } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Copy, MessageCircle, Smartphone } from "lucide-react";
 
 const APP_URL = "buildmapper.app";
 
@@ -9,11 +9,6 @@ const TRADE_OPTIONS = [
   "Mechanical / HVAC", "Electrical", "Plumbing", "Framing / Structure",
   "Roofing", "Concrete / Foundation", "Drywall / Insulation", "Windows & Doors",
   "Painting & Finishing", "Fire Protection", "General Contracting", "Materials & Supply",
-];
-
-const LOCATION_SUGGESTIONS = [
-  "Kelowna", "Vancouver", "Calgary", "Edmonton",
-  "Victoria", "Kamloops", "Abbotsford", "Red Deer",
 ];
 
 const SCAN_MESSAGES = [
@@ -24,7 +19,14 @@ const SCAN_MESSAGES = [
   { text: "Done — your leads are ready", color: "#00C875" },
 ];
 
-type Phase = "landing" | "step1" | "step2" | "loading" | "payoff";
+const CHAT_SUGGESTIONS = [
+  "I do HVAC and mechanical work in Kelowna",
+  "Electrical contractor, mostly the Okanagan",
+  "We do framing and structure in Vancouver",
+  "Plumbing across BC Interior",
+];
+
+type Phase = "landing" | "chat" | "loading" | "payoff";
 
 // ── Shared logo ───────────────────────────────────────────────────────────────
 
@@ -72,58 +74,6 @@ function PhoneSetup1({ selected }: { selected: string[] }) {
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function PhoneSetup2({ locations }: { locations: string[] }) {
-  return (
-    <div className="flex flex-col h-full" style={{ background: "#09090B", padding: "36px 14px 14px" }}>
-      <div
-        className="absolute inset-x-0 top-0 pointer-events-none"
-        style={{ height: "40%", background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,200,117,0.08) 0%, transparent 70%)" }}
-      />
-      <p className="text-[9px] font-semibold uppercase tracking-widest mb-1 relative" style={{ color: "#52525B" }}>
-        Step 2 of 2
-      </p>
-      <p className="text-[15px] font-bold mb-3 relative" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
-        Where do you work?
-      </p>
-      <div
-        className="rounded-xl p-2.5 relative"
-        style={{
-          background: "#1C1C22",
-          border: `1px solid ${locations.length > 0 ? "rgba(0,200,117,0.3)" : "rgba(255,255,255,0.09)"}`,
-        }}
-      >
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {locations.map((loc) => (
-            <span
-              key={loc}
-              className="px-2 py-0.5 rounded-full text-[8px] font-medium"
-              style={{ background: "rgba(0,200,117,0.12)", border: "1px solid rgba(0,200,117,0.25)", color: "#34D399" }}
-            >
-              {loc}
-            </span>
-          ))}
-        </div>
-        <p className="text-[9px]" style={{ color: locations.length > 0 ? "#3F3F46" : "#52525B" }}>
-          {locations.length > 0 ? "Add another city..." : "e.g. Calgary, Phoenix, Ontario..."}
-        </p>
-      </div>
-      {locations.length === 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {["Kelowna", "Calgary", "Vancouver"].map((c) => (
-            <span
-              key={c}
-              className="flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-medium"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "#71717A" }}
-            >
-              <Plus size={7} strokeWidth={2.5} />{c}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -250,8 +200,7 @@ function PhoneFrame({ phase, trades, locations }: {
         <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", width: 100, height: 26, borderRadius: 20, background: "#000", zIndex: 20 }} />
         <div style={{ position: "absolute", inset: 0 }}>
           {phase === "landing"  && <PhoneSetup1 selected={[]} />}
-          {phase === "step1"    && <PhoneSetup1 selected={trades} />}
-          {phase === "step2"    && <PhoneSetup2 locations={locations} />}
+          {phase === "chat"     && <PhoneSetup1 selected={trades} />}
           {phase === "loading"  && <PhoneWorking />}
           {phase === "payoff"   && <PhonePayoff trades={trades} locations={locations} />}
         </div>
@@ -264,42 +213,20 @@ function PhoneFrame({ phase, trades, locations }: {
   );
 }
 
-// ── Step indicator ────────────────────────────────────────────────────────────
-
-function StepDots({ phase }: { phase: Phase }) {
-  const steps: Phase[] = ["step1", "step2", "loading", "payoff"];
-  const current = steps.indexOf(phase);
-  if (current < 0) return null;
-  return (
-    <div className="flex items-center gap-1.5 mb-8">
-      {steps.slice(0, 2).map((_, i) => (
-        <div key={i} className="rounded-full transition-all duration-500" style={{
-          height: 3,
-          width: i === current ? 24 : 12,
-          background: i < current ? "rgba(0,200,117,0.5)" : i === current ? "#00C875" : "rgba(255,255,255,0.1)",
-        }} />
-      ))}
-      <span className="text-[11px] font-medium ml-1" style={{ color: "#52525B" }}>
-        {current === 0 ? "Step 1 of 2" : current === 1 ? "Step 2 of 2" : ""}
-      </span>
-    </div>
-  );
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function DesktopLanding() {
   const [phase, setPhase] = useState<Phase>("landing");
   const [trades, setTrades] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
-  const [locationInput, setLocationInput] = useState("");
-  const [locationError, setLocationError] = useState("");
   const [scanMessages, setScanMessages] = useState<number[]>([]);
   const [copied, setCopied] = useState(false);
   const [smsPhone, setSmsPhone] = useState("");
   const [smsSent, setSmsSent] = useState(false);
   const [smsSending, setSmsSending] = useState(false);
-  const locationInputRef = useRef<HTMLInputElement>(null);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Loading sequence
   useEffect(() => {
@@ -313,31 +240,6 @@ export default function DesktopLanding() {
     timeouts.push(setTimeout(() => setPhase("payoff"), SCAN_MESSAGES.length * 900 + 1200));
     return () => timeouts.forEach(clearTimeout);
   }, [phase]);
-
-  const toggleTrade = (t: string) =>
-    setTrades((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
-
-  const addLocation = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    if (locations.map((l) => l.toLowerCase()).includes(trimmed.toLowerCase())) {
-      setLocationError("Already added");
-      setTimeout(() => setLocationError(""), 1800);
-      setLocationInput("");
-      return;
-    }
-    setLocations((prev) => [...prev, trimmed]);
-    setLocationInput("");
-    setLocationError("");
-  };
-
-  const removeLocation = (loc: string) => setLocations((prev) => prev.filter((l) => l !== loc));
-
-  const handleLocationKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addLocation(locationInput); }
-    if (e.key === "Backspace" && !locationInput && locations.length > 0)
-      removeLocation(locations[locations.length - 1]);
-  };
 
   const handleCopy = async () => {
     try { await navigator.clipboard.writeText(APP_URL); } catch {}
@@ -359,9 +261,30 @@ export default function DesktopLanding() {
     setSmsSending(false);
   };
 
-  const unusedSuggestions = LOCATION_SUGGESTIONS.filter(
-    (s) => !locations.map((l) => l.toLowerCase()).includes(s.toLowerCase())
-  );
+  const handleChatSubmit = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || chatLoading) return;
+    setChatLoading(true);
+    try {
+      const res = await fetch("/api/chat/parse-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: trimmed }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.trades?.length) setTrades(data.trades);
+        if (data.cities?.length) setLocations(data.cities);
+      }
+    } catch (_) {}
+    setChatLoading(false);
+    setPhase("loading");
+  };
+
+  const autoResizeChat = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  };
 
   const leadCount = Math.min(3 + trades.length + locations.length, 12);
   const hotCount = Math.max(2, Math.floor(leadCount * 0.4));
@@ -405,7 +328,7 @@ export default function DesktopLanding() {
               It scans live permits, maps your relationships, and tells you exactly who to call.
             </p>
             <button
-              onClick={() => setPhase("step1")}
+              onClick={() => setPhase("chat")}
               className="pressable flex items-center gap-3 px-7 py-4 rounded-2xl text-[16px] font-semibold transition-all duration-200 mb-4"
               style={{
                 background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
@@ -422,171 +345,83 @@ export default function DesktopLanding() {
           </div>
         )}
 
-        {/* ── STEP 1: What do you sell ── */}
-        {phase === "step1" && (
-          <div key="step1" className="animate-fade-up">
-            <StepDots phase="step1" />
-            <h2 className="font-bold leading-tight mb-2" style={{ fontSize: "clamp(28px, 3vw, 40px)", letterSpacing: "-0.03em", color: "#F4F4F5" }}>
-              What do you sell?
-            </h2>
-            <p className="text-[15px] mb-2" style={{ color: "#71717A" }}>
-              Scout matches live permits to your trade.
-            </p>
-            {trades.length > 0 && (
-              <p className="text-[13px] font-semibold mb-6" style={{ color: "#00C875" }}>
-                {trades.length} selected
-              </p>
-            )}
-            {trades.length === 0 && <div className="mb-6" />}
-            <div className="flex flex-wrap gap-2 mb-8">
-              {TRADE_OPTIONS.map((opt) => {
-                const selected = trades.includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    onClick={() => toggleTrade(opt)}
-                    className="pressable flex items-center gap-2 px-4 py-2.5 rounded-full text-[14px] font-medium transition-all duration-150"
-                    style={selected ? {
-                      background: "rgba(0,200,117,0.12)",
-                      border: "1px solid rgba(0,200,117,0.3)",
-                      color: "#34D399", fontWeight: 600,
-                    } : {
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      color: "#A1A1AA",
-                    }}
-                  >
-                    {selected && (
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#00C875" }}>
-                        <Check size={9} color="white" strokeWidth={3} />
-                      </span>
-                    )}
-                    {opt}
-                  </button>
-                );
-              })}
+        {/* ── CHAT ONBOARDING ── */}
+        {phase === "chat" && (
+          <div key="chat" className="animate-fade-up">
+            {/* Scout avatar + greeting */}
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", boxShadow: "0 0 20px rgba(0,200,117,0.3)" }}
+              >
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 2h5a2.5 2.5 0 0 1 0 5H3V2Z" fill="white" fillOpacity="0.95" />
+                  <path d="M3 7h5.5a2.5 2.5 0 0 1 0 5H3V7Z" fill="white" fillOpacity="0.7" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[16px] font-semibold" style={{ color: "#F4F4F5" }}>Hey, I&apos;m Scout</p>
+                <p className="text-[13px]" style={{ color: "#52525B" }}>Tell me what you do and where you work — I&apos;ll set things up.</p>
+              </div>
             </div>
-            <button
-              onClick={() => trades.length > 0 && setPhase("step2")}
-              disabled={trades.length === 0}
-              className="pressable flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all duration-300"
-              style={trades.length > 0 ? {
-                background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-                color: "#fff", boxShadow: "0 0 24px rgba(0,200,117,0.28)",
-              } : {
-                background: "rgba(255,255,255,0.04)",
-                color: "#3F3F46", border: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              Next
-              {trades.length > 0 && <ArrowRight size={16} strokeWidth={2.5} />}
-            </button>
-          </div>
-        )}
 
-        {/* ── STEP 2: Where do you work ── */}
-        {phase === "step2" && (
-          <div key="step2" className="animate-fade-up">
-            <StepDots phase="step2" />
-            <h2 className="font-bold leading-tight mb-2" style={{ fontSize: "clamp(28px, 3vw, 40px)", letterSpacing: "-0.03em", color: "#F4F4F5" }}>
-              Where do you work?
-            </h2>
-            <p className="text-[15px] mb-6" style={{ color: "#71717A" }}>
-              Add any city, region, or province — anywhere in North America.
-            </p>
+            {/* Suggestion pills */}
+            <div className="flex flex-col gap-2 mb-5">
+              {CHAT_SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleChatSubmit(s)}
+                  disabled={chatLoading}
+                  className="pressable text-left px-4 py-3 rounded-2xl text-[13px] transition-all duration-150"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    color: "#71717A",
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
 
-            {/* Tag input */}
+            {/* Textarea + send */}
             <div
-              className="rounded-2xl p-4 mb-3 cursor-text transition-all duration-200"
+              className="relative rounded-2xl transition-all duration-200"
               style={{
                 background: "#1C1C22",
-                border: `1px solid ${locationError ? "rgba(239,68,68,0.4)" : locations.length > 0 ? "rgba(0,200,117,0.3)" : "rgba(255,255,255,0.09)"}`,
+                border: `1px solid ${chatInput.trim() ? "rgba(0,200,117,0.3)" : "rgba(255,255,255,0.09)"}`,
+                boxShadow: chatInput.trim() ? "0 0 20px rgba(0,200,117,0.08)" : "none",
               }}
-              onClick={() => locationInputRef.current?.focus()}
             >
-              <div className="flex flex-wrap gap-2 mb-2">
-                {locations.map((loc) => (
-                  <span
-                    key={loc}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium"
-                    style={{ background: "rgba(0,200,117,0.12)", border: "1px solid rgba(0,200,117,0.25)", color: "#34D399" }}
-                  >
-                    {loc}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); removeLocation(loc); }}
-                      style={{ color: "#34D399", opacity: 0.7, lineHeight: 1 }}
-                    >
-                      <X size={11} strokeWidth={2.5} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  ref={locationInputRef}
-                  type="text"
-                  value={locationInput}
-                  onChange={(e) => { setLocationInput(e.target.value); setLocationError(""); }}
-                  onKeyDown={handleLocationKey}
-                  placeholder={locations.length === 0 ? "e.g. Calgary, Phoenix, Ontario..." : "Add another..."}
-                  className="flex-1 text-[15px] bg-transparent outline-none"
-                  style={{ color: "#F4F4F5", caretColor: "#00C875" }}
-                />
-                {locationInput.trim() && (
-                  <button
-                    onClick={() => addLocation(locationInput)}
-                    className="pressable flex items-center justify-center rounded-full flex-shrink-0"
-                    style={{ width: 30, height: 30, background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)" }}
-                  >
-                    <Plus size={15} color="white" strokeWidth={2.5} />
-                  </button>
-                )}
-              </div>
-              {locationError && (
-                <p className="text-[12px] mt-2" style={{ color: "#EF4444" }}>{locationError}</p>
-              )}
+              <textarea
+                ref={chatTextareaRef}
+                rows={1}
+                value={chatInput}
+                onChange={(e) => { setChatInput(e.target.value); autoResizeChat(e.target); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleChatSubmit(chatInput); } }}
+                placeholder="e.g. I do HVAC in Kelowna and the Okanagan"
+                className="w-full px-4 pt-4 pb-4 pr-14 text-[15px] bg-transparent resize-none outline-none leading-relaxed"
+                style={{ color: "#F4F4F5", caretColor: "#00C875", minHeight: 56 }}
+              />
+              <button
+                onClick={() => handleChatSubmit(chatInput)}
+                disabled={!chatInput.trim() || chatLoading}
+                className="pressable absolute right-3 bottom-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200"
+                style={
+                  chatInput.trim() && !chatLoading
+                    ? { background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", boxShadow: "0 0 16px rgba(0,200,117,0.35)" }
+                    : { background: "rgba(255,255,255,0.06)" }
+                }
+              >
+                {chatLoading
+                  ? <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "transparent" }} />
+                  : <ArrowUp size={16} strokeWidth={2.5} style={{ color: chatInput.trim() ? "#fff" : "#52525B" }} />
+                }
+              </button>
             </div>
-            <p className="text-[12px] mb-6" style={{ color: "#3F3F46" }}>
-              Press Enter or tap + to add · Backspace removes last
+            <p className="text-[11px] text-center mt-3" style={{ color: "#3F3F46" }}>
+              You can edit everything on the next screen
             </p>
-
-            {/* Quick-add suggestions */}
-            {unusedSuggestions.length > 0 && (
-              <div className="mb-8">
-                <p className="text-[11px] font-semibold uppercase tracking-widest mb-3" style={{ color: "#3F3F46" }}>
-                  Quick add
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {unusedSuggestions.map((city) => (
-                    <button
-                      key={city}
-                      onClick={() => addLocation(city)}
-                      className="pressable flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-medium transition-all duration-150"
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#71717A" }}
-                    >
-                      <Plus size={11} strokeWidth={2.5} />
-                      {city}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={() => locations.length > 0 && setPhase("loading")}
-              disabled={locations.length === 0}
-              className="pressable flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-[15px] font-semibold transition-all duration-300"
-              style={locations.length > 0 ? {
-                background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-                color: "#fff", boxShadow: "0 0 24px rgba(0,200,117,0.28)",
-              } : {
-                background: "rgba(255,255,255,0.04)",
-                color: "#3F3F46", border: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              Find my leads
-              {locations.length > 0 && <ArrowRight size={16} strokeWidth={2.5} />}
-            </button>
           </div>
         )}
 
