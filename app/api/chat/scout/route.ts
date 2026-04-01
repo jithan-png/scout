@@ -38,7 +38,8 @@ Formatting rules:
 
 Structured block rules — append ONE of these markers at the very end of your response (after all text) when relevant:
 - When you draft an outreach email or follow-up message, append: __BLOCK__{"type":"email_draft","subject":"<subject line>","body":"<full email body>"}
-- Do NOT append a block for general advice, market analysis, or any response that is not a draft email.
+- When the user asks about a specific company ("tell me about X", "what do you know about X", "account brief for X", "who is X"), use web search to research them and then append: __BLOCK__{"type":"account_brief","companyName":"<company name>","overview":"<1-2 sentences on what they do and where>","recentActivity":"<1-2 sentences on recent projects or news>","yourAngle":"<1 sentence on the best way for this user to approach them>"}
+- Do NOT append a block for general advice, market analysis, or any response that is not a draft email or company brief.
 - Only one block per response. Never mid-response.`;
 }
 

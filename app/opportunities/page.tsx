@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import OpportunityCard from "@/components/opportunities/OpportunityCard";
 import BottomNav from "@/components/ui/BottomNav";
@@ -96,6 +96,7 @@ export default function OpportunitiesPage() {
     useAppStore();
   const [filter, setFilter] = useState<OpportunityPriority | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   // When an intent search was run, pre-filter by relevance
   const intentFiltered = activeIntent
@@ -153,18 +154,22 @@ export default function OpportunitiesPage() {
             </p>
           </div>
           <button
-            className="pressable w-9 h-9 rounded-full flex items-center justify-center"
+            onClick={() => setFilterSheetOpen(true)}
+            className="pressable w-9 h-9 rounded-full flex items-center justify-center relative"
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: sourceFilter !== "all" ? "rgba(0,200,117,0.12)" : "rgba(255,255,255,0.05)",
+              border: sourceFilter !== "all" ? "1px solid rgba(0,200,117,0.3)" : "1px solid rgba(255,255,255,0.08)",
             }}
           >
-            <SlidersHorizontal size={16} strokeWidth={2} style={{ color: "#A1A1AA" }} />
+            <SlidersHorizontal size={16} strokeWidth={2} style={{ color: sourceFilter !== "all" ? "#00C875" : "#A1A1AA" }} />
+            {sourceFilter !== "all" && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: "#00C875" }} />
+            )}
           </button>
         </div>
 
-        {/* Priority filter pills */}
-        <div className="flex gap-2 overflow-x-auto mb-2.5" style={{ scrollbarWidth: "none" }}>
+        {/* Priority filter pills — only row always visible */}
+        <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {FILTERS.map(({ label, value }) => {
             const isActive = filter === value;
             const count = value === "all" ? sourceFiltered.length : counts[value];
@@ -175,59 +180,67 @@ export default function OpportunitiesPage() {
                 className="pressable flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200"
                 style={
                   isActive
-                    ? {
-                        background: "#00C875",
-                        color: "#09090B",
-                        boxShadow: "0 0 14px rgba(0,200,117,0.25)",
-                      }
-                    : {
-                        background: "rgba(255,255,255,0.05)",
-                        color: "#71717A",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                      }
+                    ? { background: "#00C875", color: "#09090B", boxShadow: "0 0 14px rgba(0,200,117,0.25)" }
+                    : { background: "rgba(255,255,255,0.05)", color: "#71717A", border: "1px solid rgba(255,255,255,0.08)" }
                 }
               >
                 {label}
-                <span
-                  className="text-[11px] font-bold"
-                  style={{ opacity: isActive ? 0.7 : 0.5 }}
-                >
+                <span className="text-[11px] font-bold" style={{ opacity: isActive ? 0.7 : 0.5 }}>
                   {isLoadingOpportunities ? "—" : count}
                 </span>
               </button>
             );
           })}
         </div>
-
-        {/* Source filter pills */}
-        <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {SOURCE_FILTERS.map(({ label, value }) => {
-            const isActive = sourceFilter === value;
-            return (
-              <button
-                key={value}
-                onClick={() => setSourceFilter(value)}
-                className="pressable flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200"
-                style={
-                  isActive
-                    ? {
-                        background: "rgba(255,255,255,0.12)",
-                        color: "#E4E4E7",
-                        border: "1px solid rgba(255,255,255,0.2)",
-                      }
-                    : {
-                        background: "rgba(255,255,255,0.03)",
-                        color: "#52525B",
-                        border: "1px solid rgba(255,255,255,0.06)",
-                      }
-                }
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
       </header>
+
+      {/* ── Filter sheet ────────────────────────────────────────────────── */}
+      {filterSheetOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={() => setFilterSheetOpen(false)}>
+          <div
+            className="rounded-t-3xl p-6 animate-fade-up"
+            style={{ background: "#141418", border: "1px solid rgba(255,255,255,0.08)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <p className="text-[16px] font-bold" style={{ color: "#F4F4F5" }}>Filter by source</p>
+              <button onClick={() => setFilterSheetOpen(false)} className="pressable">
+                <X size={18} strokeWidth={2} style={{ color: "#71717A" }} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 mb-6">
+              {SOURCE_FILTERS.map(({ label, value }) => {
+                const isActive = sourceFilter === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => { setSourceFilter(value); setFilterSheetOpen(false); }}
+                    className="pressable flex items-center justify-between px-4 py-3.5 rounded-2xl text-[14px] font-semibold transition-all"
+                    style={
+                      isActive
+                        ? { background: "rgba(0,200,117,0.1)", color: "#34D399", border: "1px solid rgba(0,200,117,0.25)" }
+                        : { background: "rgba(255,255,255,0.04)", color: "#A1A1AA", border: "1px solid rgba(255,255,255,0.07)" }
+                    }
+                  >
+                    {label}
+                    {isActive && <span style={{ color: "#00C875" }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+            {sourceFilter !== "all" && (
+              <button
+                onClick={() => { setSourceFilter("all"); setFilterSheetOpen(false); }}
+                className="pressable w-full py-3 rounded-2xl text-[14px] font-semibold"
+                style={{ background: "rgba(255,255,255,0.06)", color: "#71717A" }}
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Coverage note ──────────────────────────────────────────────── */}
       {coverageNote && !isLoadingOpportunities && (

@@ -428,9 +428,10 @@ function ScoutConfigBody() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { connections, resetStore } = useAppStore();
+  const { connections, resetStore, whatsappPhone, setWhatsappPhone } = useAppStore();
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const [activeConn, setActiveConn] = useState<DataConnection | null>(null);
+  const [phoneInput, setPhoneInput] = useState("");
 
   const handleSignOut = () => {
     if (confirm("Sign out and clear all your data?")) {
@@ -475,6 +476,83 @@ export default function ProfilePage() {
                 onConnect={() => setActiveConn(conn)}
               />
             ))}
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="mb-5">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest mb-3"
+            style={{ color: "#3F3F46" }}
+          >
+            Notifications
+          </p>
+          <div
+            className="rounded-2xl p-4"
+            style={{ background: "#1C1C22", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(37,211,102,0.12)", border: "1px solid rgba(37,211,102,0.2)" }}
+              >
+                <MessageCircle size={16} style={{ color: "#25D366" }} strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>WhatsApp alerts</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "#52525B" }}>
+                  Get proactive lead alerts via WhatsApp
+                </p>
+              </div>
+              {whatsappPhone && (
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full flex-shrink-0"
+                  style={{ background: "rgba(0,200,117,0.10)", border: "1px solid rgba(0,200,117,0.2)" }}
+                >
+                  <Check size={9} style={{ color: "#00C875" }} strokeWidth={3} />
+                  <span className="text-[10px] font-bold" style={{ color: "#34D399" }}>Active</span>
+                </div>
+              )}
+            </div>
+            {whatsappPhone ? (
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] font-medium" style={{ color: "#71717A" }}>{whatsappPhone}</p>
+                <button
+                  onClick={() => setWhatsappPhone(null)}
+                  className="pressable text-[12px] font-semibold"
+                  style={{ color: "#52525B" }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="+1 (555) 000-0000"
+                  className="flex-1 px-3 py-2.5 rounded-xl text-[13px] bg-transparent outline-none"
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.09)",
+                    color: "#F4F4F5",
+                  }}
+                />
+                <button
+                  onClick={() => { if (phoneInput.trim()) { setWhatsappPhone(phoneInput.trim()); setPhoneInput(""); } }}
+                  disabled={!phoneInput.trim()}
+                  className="pressable px-4 py-2.5 rounded-xl text-[13px] font-semibold"
+                  style={
+                    phoneInput.trim()
+                      ? { background: "rgba(37,211,102,0.15)", color: "#25D366", border: "1px solid rgba(37,211,102,0.25)" }
+                      : { background: "rgba(255,255,255,0.04)", color: "#3F3F46", border: "1px solid rgba(255,255,255,0.07)" }
+                  }
+                >
+                  Save
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

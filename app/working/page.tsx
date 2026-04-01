@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, MessageCircle } from "lucide-react";
+import { Check } from "lucide-react";
 import { signIn, useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
 import { MOCK_AGENT_UPDATES } from "@/lib/mock-data";
@@ -54,16 +54,13 @@ const TYPE_COLOR: Record<UpdateType, string> = {
 export default function WorkingPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, setCoverageNote, setOpportunities, opportunities, setWhatsappPhone, whatsappPhone } =
+  const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, setCoverageNote, setOpportunities, opportunities } =
     useAppStore();
   const [animationDone, setAnimationDone] = useState(false);
   const [apiDone, setApiDone] = useState(false);
   const done = animationDone && apiDone;
   const [showTyping, setShowTyping] = useState(true);
   const [liveCount, setLiveCount] = useState<number | null>(null);
-  const [phoneInput, setPhoneInput] = useState("");
-  const [whatsappSaved, setWhatsappSaved] = useState(false);
-  const [smsSending, setSmsSending] = useState(false);
   const realDataRef = useRef<ScoutOpportunity[] | null>(null);
 
   useEffect(() => {
@@ -353,107 +350,6 @@ export default function WorkingPage() {
               </div>
             )}
 
-            {/* ── Section C: WhatsApp capture ── */}
-            <div className="w-full animate-fade-up" style={{ animationDelay: "400ms" }}>
-              <div
-                className="rounded-2xl p-4 mt-4"
-                style={{
-                  background: "#1C1C22",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
-                }}
-              >
-                {whatsappSaved || whatsappPhone ? (
-                  /* Confirmed state */
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: "rgba(37,211,102,0.15)" }}
-                    >
-                      <Check size={14} style={{ color: "#25D366" }} strokeWidth={2.5} />
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>
-                        WhatsApp alerts on
-                      </p>
-                      <p className="text-[12px] mt-0.5" style={{ color: "#52525B" }}>
-                        Scout will text you when new opportunities arrive
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  /* Capture state */
-                  <>
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <MessageCircle size={15} style={{ color: "#25D366" }} strokeWidth={2} />
-                      <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>
-                        Get notified when Scout finds new leads
-                      </p>
-                    </div>
-                    <div
-                      className="flex items-center rounded-xl overflow-hidden mb-3"
-                      style={{
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.09)",
-                      }}
-                    >
-                      <span
-                        className="px-3 py-3 text-[14px] flex-shrink-0 border-r"
-                        style={{ color: "#71717A", borderColor: "rgba(255,255,255,0.09)" }}
-                      >
-                        +1
-                      </span>
-                      <input
-                        type="tel"
-                        value={phoneInput}
-                        onChange={(e) => setPhoneInput(e.target.value)}
-                        placeholder="Phone number"
-                        className="flex-1 px-3 py-3 text-[14px] bg-transparent outline-none"
-                        style={{ color: "#F4F4F5", caretColor: "#00C875" }}
-                      />
-                    </div>
-                    <button
-                      onClick={async () => {
-                        if (!phoneInput.trim()) return;
-                        setSmsSending(true);
-                        try {
-                          await fetch(
-                            `/api/notify/register`,
-                            {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ phone: phoneInput.trim() }),
-                            }
-                          );
-                        } catch (_) {
-                          // fail silently — still save locally
-                        }
-                        setWhatsappPhone(phoneInput.trim());
-                        setWhatsappSaved(true);
-                        setSmsSending(false);
-                      }}
-                      disabled={!phoneInput.trim() || smsSending}
-                      className="pressable w-full py-3 rounded-xl text-[14px] font-semibold transition-all duration-200"
-                      style={
-                        phoneInput.trim()
-                          ? {
-                              background: "linear-gradient(135deg, #25D366 0%, #1da851 100%)",
-                              color: "#fff",
-                              boxShadow: "0 0 16px rgba(37,211,102,0.25)",
-                            }
-                          : {
-                              background: "rgba(255,255,255,0.04)",
-                              color: "#3F3F46",
-                            }
-                      }
-                    >
-                      {smsSending ? "Sending..." : "Send me WhatsApp alerts"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
             {/* ── Conversion gate (unauthenticated only) ── */}
             {!session && (
               <div
@@ -461,7 +357,7 @@ export default function WorkingPage() {
                 style={{
                   background: "linear-gradient(135deg, rgba(0,200,117,0.08) 0%, rgba(0,200,117,0.03) 100%)",
                   border: "1px solid rgba(0,200,117,0.2)",
-                  animationDelay: "500ms",
+                  animationDelay: "400ms",
                 }}
               >
                 <p className="text-[16px] font-bold mb-1" style={{ color: "#F4F4F5" }}>

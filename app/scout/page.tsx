@@ -14,12 +14,12 @@ function getSuggestions(trades: string[], cities: string[], projectTypes: string
   const city = cities[0] || "your area";
   const trade = trades[0] || "your trade";
   return [
-    `Find new ${projectTypes[0] || "commercial"} projects in ${city} where I have a warm path in`,
-    `What permits were filed in ${city} this week?`,
-    "Who should I follow up with this week?",
-    "Draft a cold intro email for my best lead",
-    `Who do I know at companies working on ${projectTypes[0] || "commercial"} projects in ${city}?`,
-    `What tenders are active for ${trade}?`,
+    `Find ${projectTypes[0] || "commercial"} projects near ${city}`,
+    `New permits in ${city} this week`,
+    "Who should I follow up with?",
+    "Draft intro for my best lead",
+    `Who do I know at ${city} projects?`,
+    `Active tenders for ${trade}`,
   ];
 }
 
@@ -75,6 +75,37 @@ function EmailDraftBlock({ subject, body }: { subject: string; body: string }) {
   );
 }
 
+function AccountBriefBlock({ companyName, overview, recentActivity, yourAngle }: { companyName: string; overview: string; recentActivity: string; yourAngle: string }) {
+  return (
+    <div
+      className="rounded-2xl p-4 mt-2 animate-fade-up"
+      style={{ background: "#141418", border: "1px solid rgba(0,200,117,0.18)" }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "#3F3F46" }}>
+        Account Brief
+      </p>
+      <p className="text-[14px] font-bold mb-3" style={{ color: "#F4F4F5" }}>{companyName}</p>
+      <div className="flex flex-col gap-2.5">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "#52525B" }}>Overview</p>
+          <p className="text-[13px] leading-relaxed" style={{ color: "#A1A1AA" }}>{overview}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "#52525B" }}>Recent Activity</p>
+          <p className="text-[13px] leading-relaxed" style={{ color: "#A1A1AA" }}>{recentActivity}</p>
+        </div>
+        <div
+          className="px-3 py-2.5 rounded-xl"
+          style={{ background: "rgba(0,200,117,0.06)", border: "1px solid rgba(0,200,117,0.14)" }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "#34D399" }}>Your Angle</p>
+          <p className="text-[13px] leading-relaxed" style={{ color: "#6EE7B7" }}>{yourAngle}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OpportunityPreviewBlock({ opportunityId }: { opportunityId: string }) {
   const { opportunities } = useAppStore();
   const router = useRouter();
@@ -112,6 +143,7 @@ function BlockRenderer({ blocks }: { blocks: ChatBlock[] }) {
     <>
       {blocks.map((block, i) => {
         if (block.type === "email_draft") return <EmailDraftBlock key={i} subject={block.subject} body={block.body} />;
+        if (block.type === "account_brief") return <AccountBriefBlock key={i} companyName={block.companyName} overview={block.overview} recentActivity={block.recentActivity} yourAngle={block.yourAngle} />;
         if (block.type === "opportunity_preview") return <OpportunityPreviewBlock key={i} opportunityId={block.opportunityId} />;
         if (block.type === "lead_list") return (
           <div key={i} className="flex flex-col gap-2 mt-2">

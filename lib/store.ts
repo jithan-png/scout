@@ -35,7 +35,8 @@ interface SetupState {
 export type ChatBlock =
   | { type: "email_draft"; subject: string; body: string }
   | { type: "opportunity_preview"; opportunityId: string }
-  | { type: "lead_list"; opportunityIds: string[] };
+  | { type: "lead_list"; opportunityIds: string[] }
+  | { type: "account_brief"; companyName: string; overview: string; recentActivity: string; yourAngle: string };
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -48,7 +49,7 @@ interface AppStore {
   user: User | null;
   setUser: (user: User) => void;
   whatsappPhone: string | null;
-  setWhatsappPhone: (phone: string) => void;
+  setWhatsappPhone: (phone: string | null) => void;
 
   // Setup
   setup: SetupState;

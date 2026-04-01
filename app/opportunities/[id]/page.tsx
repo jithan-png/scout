@@ -21,14 +21,11 @@ import {
   Clock,
   Users,
   Search,
-  ClipboardList,
   Copy,
   Check,
   Sparkles,
-  ArrowRight,
 } from "lucide-react";
-import { useState, useCallback } from "react";
-import { useRouter as useNextRouter } from "next/navigation";
+import { useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
 import ScoreBreakdown from "@/components/opportunities/ScoreBreakdown";
@@ -55,32 +52,27 @@ function formatDate(iso: string): string {
   }
 }
 
-// ── Sales stages ──────────────────────────────────────────────────────────────
+// ── Score narrative ───────────────────────────────────────────────────────────
 
-const SALES_STAGES = [
-  { id: "research",  label: "Research",          step: 1 },
-  { id: "outreach",  label: "Initial Outreach",  step: 2 },
-  { id: "followup",  label: "Follow Up",         step: 3 },
-  { id: "meeting",   label: "Discovery Meeting", step: 4 },
-  { id: "proposal",  label: "Proposal",          step: 5 },
-];
-
-function getStageFromActionType(actionType: string): number {
-  if (actionType === "research") return 0;
-  if (actionType === "email" || actionType === "connect") return 1;
-  if (actionType === "call") return 2;
-  return 1;
+function buildScoreNarrative(opp: ScoutOpportunity): string {
+  const scout = opp as import("@/lib/types").ScoutOpportunity;
+  const parts: string[] = [];
+  if (scout.scoreBreakdown) {
+    const bd = scout.scoreBreakdown;
+    if (bd.request_fit >= 22) parts.push("strong trade match");
+    else if (bd.request_fit >= 15) parts.push("decent trade match");
+    if (bd.relationship >= 20) parts.push("direct warm path");
+    else if (bd.relationship >= 10) parts.push("indirect connection");
+    if (bd.timing >= 16) parts.push("ideal timing");
+    else if (bd.timing >= 10) parts.push("good timing");
+    if (bd.commercial >= 12) parts.push("high-value contract");
+  }
+  if (parts.length === 0) return `Scout rated this ${opp.score}/100 based on your profile.`;
+  const joined = parts.length > 1
+    ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1]
+    : parts[0];
+  return `${joined.charAt(0).toUpperCase() + joined.slice(1)} — Scout rates this ${opp.score}/100.`;
 }
-
-// ── Score dimension explanations ──────────────────────────────────────────────
-
-const DIM_EXPLAIN: Record<string, string> = {
-  request_fit:  "How well this project matches your trades and target project types",
-  relationship: "Strength of your connections to people on this project",
-  timing:       "How early you are — permits just filed score highest",
-  commercial:   "Estimated project value and contract potential",
-  confidence:   "Quality and completeness of the underlying data",
-};
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -207,7 +199,6 @@ export default function OpportunityDetailPage() {
   const [scoreExpanded, setScoreExpanded] = useState(false);
   const [emailDraftOpen, setEmailDraftOpen] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const [quoteOpen, setQuoteOpen] = useState(false);
 
   const opp = opportunities.find((o) => o.id === params.id);
 
@@ -225,6 +216,7 @@ export default function OpportunityDetailPage() {
   const scout = opp as ScoutOpportunity;
   const isSaved = savedOpportunityIds.has(opp.id);
   const priorityColor = opp.priority === "hot" ? "#EF4444" : opp.priority === "warm" ? "#F59E0B" : "#71717A";
+  const actionColor = opp.priority === "hot" ? "#00C875" : opp.priority === "warm" ? "#F59E0B" : "#71717A";
 
   const hasAddress = !!(opp.project.address || opp.project.city);
   const hasValue = !!(scout.estimatedValue ?? opp.project.value);
@@ -236,10 +228,17 @@ export default function OpportunityDetailPage() {
   const hasCompanies = (scout.companies?.length ?? 0) > 0;
   const hasSourceRecords = (scout.sourceRecords?.length ?? 0) > 0;
   const hasScoreBreakdown = !!scout.scoreBreakdown;
+  const scoreNarrative = buildScoreNarrative(scout);
 
-  // Sales stage
-  const stageIdx = getStageFromActionType(opp.actionType);
-  const currentStage = SALES_STAGES[stageIdx];
+  // Relationship narrative
+  const relationshipNarrative = hasRelationship ? (() => {
+    const contact = opp.relationship.path.find(s => s.type === "contact");
+    const company = opp.relationship.path.find(s => s.type === "company");
+    if (contact && company) {
+      return `You know ${contact.label}${contact.detail ? ` — ${contact.detail}` : ""}. They can connect you directly to ${company.label}.`;
+    }
+    return opp.relationship.summary;
+  })() : null;
 
   // Draft email body
   const userTrades = setup.whatISell.slice(0, 2).join(" and ") || "our services";
@@ -307,62 +306,66 @@ Best regards,`;
             <span className="text-[12px]" style={{ color: "#52525B" }}>{opp.project.type}</span>
           </div>
 
-          <div className="flex items-start justify-between gap-3 mb-5">
+          <div className="flex items-start justify-between gap-3 mb-4">
             <h1 className="flex-1 text-[22px] font-bold leading-tight" style={{ letterSpacing: "-0.025em", color: "#F4F4F5" }}>
               {opp.project.name}
             </h1>
             <LargeScoreRing score={opp.score} />
           </div>
 
-          {/* Score breakdown — always visible, collapsible for detail */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: "#1C1C22", border: "1px solid rgba(255,255,255,0.07)" }}>
-            <button
-              onClick={() => setScoreExpanded(!scoreExpanded)}
-              className="pressable w-full flex items-center justify-between px-4 pt-4 pb-3"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#3F3F46" }}>
-                  Opportunity score
-                </span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ color: priorityColor, background: `${priorityColor}18` }}>
-                  {opp.score}/100
-                </span>
-              </div>
-              <span style={{ color: "#52525B" }}>
-                {scoreExpanded ? <ChevronUp size={14} strokeWidth={2} /> : <ChevronDown size={14} strokeWidth={2} />}
-              </span>
-            </button>
-
-            <div className="px-4 pb-4">
-              {hasScoreBreakdown ? (
-                <ScoreBreakdown breakdown={scout.scoreBreakdown} collapsed={!scoreExpanded} />
+          {/* ── Next Best Action Panel ── */}
+          <div className="rounded-2xl p-4" style={{ background: `${actionColor}0d`, border: `1px solid ${actionColor}28` }}>
+            <p className="text-[13px] font-semibold mb-2" style={{ color: "#F4F4F5" }}>
+              {opp.suggestedAction}
+            </p>
+            <p className="text-[12px] mb-3" style={{ color: "#71717A" }}>
+              {scoreNarrative}
+            </p>
+            <div className="flex gap-2">
+              {opp.actionType === "email" || opp.actionType === "connect" ? (
+                <button
+                  onClick={() => setEmailDraftOpen(!emailDraftOpen)}
+                  className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold"
+                  style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 14px rgba(0,200,117,0.25)" }}
+                >
+                  <Mail size={13} strokeWidth={2.5} />
+                  Draft email
+                </button>
+              ) : opp.actionType === "call" ? (
+                <button
+                  onClick={() => window.open(`tel:${scout.contacts?.[0]?.phone ?? scout.companies?.[0]?.phone ?? ""}`, "_self")}
+                  className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold"
+                  style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 14px rgba(0,200,117,0.25)" }}
+                >
+                  <Phone size={13} strokeWidth={2.5} />
+                  Call now
+                </button>
               ) : (
-                /* Fallback when no breakdown data */
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 rounded-full overflow-hidden" style={{ height: 4, background: "rgba(255,255,255,0.06)" }}>
-                    <div className="h-full rounded-full" style={{ width: `${opp.score}%`, background: priorityColor }} />
-                  </div>
-                  <span className="text-[11px] font-semibold" style={{ color: priorityColor }}>{opp.score}%</span>
-                </div>
+                <button
+                  onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(opp.company.name + " construction")}`, "_blank")}
+                  className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold"
+                  style={{ background: "rgba(255,255,255,0.08)", color: "#A1A1AA", border: "1px solid rgba(255,255,255,0.1)" }}
+                >
+                  <Search size={13} strokeWidth={2.5} />
+                  Research
+                </button>
               )}
-
-              {/* Explanation text when expanded */}
-              {scoreExpanded && hasScoreBreakdown && (
-                <div className="mt-4 pt-4 flex flex-col gap-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                  {Object.entries(DIM_EXPLAIN).map(([key, text]) => (
-                    <div key={key} className="flex items-start gap-2">
-                      <div className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0" style={{ background: "#3F3F46" }} />
-                      <p className="text-[11px] leading-relaxed" style={{ color: "#52525B" }}>
-                        <span className="font-semibold" style={{ color: "#71717A" }}>
-                          {key === "request_fit" ? "Request fit" : key === "confidence" ? "Data quality" : key.charAt(0).toUpperCase() + key.slice(1)}:
-                        </span>{" "}
-                        {text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <button
+                onClick={() => setScoreExpanded(!scoreExpanded)}
+                className="pressable flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[12px] font-medium"
+                style={{ background: "rgba(255,255,255,0.05)", color: "#52525B", border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                {scoreExpanded ? <ChevronUp size={12} strokeWidth={2} /> : <ChevronDown size={12} strokeWidth={2} />}
+                Score
+              </button>
             </div>
+
+            {/* Score detail — collapsed by default */}
+            {scoreExpanded && hasScoreBreakdown && (
+              <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${actionColor}20` }}>
+                <ScoreBreakdown breakdown={scout.scoreBreakdown} collapsed={false} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -371,13 +374,18 @@ Best regards,`;
           <SectionLabel>Connection paths</SectionLabel>
           {hasRelationship ? (
             <div className="rounded-2xl p-4" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-3">
                 <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)" }}>
                   <Users size={11} color="#F59E0B" strokeWidth={2.5} />
                 </div>
                 <p className="text-[13px] font-semibold" style={{ color: "#FCD34D" }}>{opp.relationship.summary}</p>
                 <span className="ml-auto text-[11px] font-semibold" style={{ color: "#F59E0B" }}>{opp.relationship.confidence}%</span>
               </div>
+              {relationshipNarrative && (
+                <p className="text-[13px] leading-relaxed mb-4" style={{ color: "#A1A1AA" }}>
+                  {relationshipNarrative}
+                </p>
+              )}
               <div className="flex flex-col gap-0">
                 {opp.relationship.path.map((step, i) => (
                   <div key={i} className="flex items-start gap-3">
@@ -502,97 +510,56 @@ Best regards,`;
           </div>
         )}
 
-        {/* ── Sales sequence ─── */}
+        {/* ── Quick actions ─── */}
         <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-          <SectionLabel>Next step</SectionLabel>
+          <SectionLabel>Actions</SectionLabel>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            <button
+              onClick={() => setEmailDraftOpen(!emailDraftOpen)}
+              className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
+              style={
+                emailDraftOpen
+                  ? { background: "rgba(0,200,117,0.15)", color: "#34D399", border: "1px solid rgba(0,200,117,0.3)" }
+                  : { background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 14px rgba(0,200,117,0.25)" }
+              }
+            >
+              <Mail size={13} strokeWidth={2.5} />
+              Draft email
+            </button>
 
-          {/* Stage progress */}
-          <div className="rounded-2xl p-4 mb-3" style={{ background: "rgba(0,200,117,0.06)", border: "1px solid rgba(0,200,117,0.15)" }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "#34D399" }}>
-                Stage {currentStage.step} of {SALES_STAGES.length}
-              </span>
-              <span className="text-[11px] font-semibold" style={{ color: "#52525B" }}>{currentStage.label}</span>
-            </div>
-
-            {/* Mini progress bar */}
-            <div className="flex gap-1 mb-3">
-              {SALES_STAGES.map((s, i) => (
-                <div
-                  key={s.id}
-                  className="flex-1 rounded-full transition-all duration-500"
-                  style={{
-                    height: 3,
-                    background: i < stageIdx ? "rgba(0,200,117,0.5)" : i === stageIdx ? "#00C875" : "rgba(255,255,255,0.08)",
-                    boxShadow: i === stageIdx ? "0 0 6px rgba(0,200,117,0.5)" : "none",
-                  }}
-                />
-              ))}
-            </div>
-
-            <p className="text-[13px] font-semibold mb-4" style={{ color: "#34D399" }}>
-              {opp.suggestedAction}
-            </p>
-
-            {/* Action buttons — horizontal scroll */}
-            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {(scout.contacts?.[0]?.phone || scout.companies?.[0]?.phone) && (
               <button
-                onClick={() => { setEmailDraftOpen(!emailDraftOpen); setQuoteOpen(false); }}
+                onClick={() => window.open(`tel:${scout.contacts?.[0]?.phone ?? scout.companies?.[0]?.phone}`, "_self")}
                 className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
-                style={
-                  emailDraftOpen
-                    ? { background: "rgba(0,200,117,0.15)", color: "#34D399", border: "1px solid rgba(0,200,117,0.3)" }
-                    : { background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 14px rgba(0,200,117,0.25)" }
-                }
+                style={{ background: "rgba(255,255,255,0.05)", color: "#A1A1AA", border: "1px solid rgba(255,255,255,0.08)" }}
               >
-                <Mail size={13} strokeWidth={2.5} />
-                Draft email
+                <Phone size={13} strokeWidth={2.5} />
+                Call
               </button>
+            )}
 
-              {(scout.contacts?.[0]?.phone || scout.companies?.[0]?.phone) && (
-                <button
-                  onClick={() => window.open(`tel:${scout.contacts?.[0]?.phone ?? scout.companies?.[0]?.phone}`, "_self")}
-                  className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.05)", color: "#A1A1AA", border: "1px solid rgba(255,255,255,0.08)" }}
-                >
-                  <Phone size={13} strokeWidth={2.5} />
-                  Call
-                </button>
-              )}
+            <button
+              onClick={() => window.open(`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(opp.company.name)}`, "_blank")}
+              className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
+              style={{ background: "rgba(34,211,238,0.08)", color: "#22D3EE", border: "1px solid rgba(34,211,238,0.18)" }}
+            >
+              <Linkedin size={13} strokeWidth={2.5} />
+              LinkedIn
+            </button>
 
-              <button
-                onClick={() => window.open(`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(opp.company.name)}`, "_blank")}
-                className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
-                style={{ background: "rgba(34,211,238,0.08)", color: "#22D3EE", border: "1px solid rgba(34,211,238,0.18)" }}
-              >
-                <Linkedin size={13} strokeWidth={2.5} />
-                LinkedIn
-              </button>
-
-              <button
-                onClick={() => { setQuoteOpen(!quoteOpen); setEmailDraftOpen(false); }}
-                className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
-                style={{ background: "rgba(167,139,250,0.08)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.18)" }}
-              >
-                <ClipboardList size={13} strokeWidth={2.5} />
-                Create quote
-              </button>
-
-              <button
-                onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(opp.company.name + " construction")}`, "_blank")}
-                className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.05)", color: "#71717A", border: "1px solid rgba(255,255,255,0.08)" }}
-              >
-                <Search size={13} strokeWidth={2.5} />
-                Research
-              </button>
-            </div>
+            <button
+              onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(opp.company.name + " construction")}`, "_blank")}
+              className="pressable flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#71717A", border: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              <Search size={13} strokeWidth={2.5} />
+              Research
+            </button>
           </div>
 
           {/* Draft email — inline expansion */}
           {emailDraftOpen && (
-            <div className="rounded-2xl overflow-hidden animate-fade-up" style={{ background: "#1C1C22", border: "1px solid rgba(0,200,117,0.2)" }}>
-              {/* Email header */}
+            <div className="rounded-2xl overflow-hidden animate-fade-up mt-3" style={{ background: "#1C1C22", border: "1px solid rgba(0,200,117,0.2)" }}>
               <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 <div className="flex items-center gap-2 mb-2">
                   <Mail size={13} style={{ color: "#00C875" }} strokeWidth={2} />
@@ -607,15 +574,11 @@ Best regards,`;
                   <span style={{ color: "#F4F4F5", fontWeight: 500 }}>{emailSubject}</span>
                 </div>
               </div>
-
-              {/* Email body */}
               <div className="px-4 py-4">
                 <pre className="text-[13px] leading-relaxed whitespace-pre-wrap font-sans" style={{ color: "#A1A1AA" }}>
                   {emailBody}
                 </pre>
               </div>
-
-              {/* Actions */}
               <div className="px-4 pb-4 flex gap-2">
                 <button
                   onClick={copyEmail}
@@ -638,26 +601,6 @@ Best regards,`;
                   Refine in Scout
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Create quote placeholder */}
-          {quoteOpen && (
-            <div className="rounded-2xl p-4 animate-fade-up" style={{ background: "#1C1C22", border: "1px solid rgba(167,139,250,0.2)" }}>
-              <div className="flex items-center gap-2 mb-2">
-                <ClipboardList size={13} style={{ color: "#A78BFA" }} strokeWidth={2} />
-                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#A78BFA" }}>Quote builder</span>
-              </div>
-              <p className="text-[13px]" style={{ color: "#71717A" }}>
-                Coming soon — set up your pricing template in Profile and Scout will auto-fill quotes for each opportunity.
-              </p>
-              <button
-                onClick={() => router.push("/profile")}
-                className="pressable flex items-center gap-1.5 mt-3 text-[12px] font-semibold"
-                style={{ color: "#A78BFA" }}
-              >
-                Set up pricing <ArrowRight size={11} strokeWidth={2.5} />
-              </button>
             </div>
           )}
         </div>
