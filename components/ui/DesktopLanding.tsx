@@ -1,9 +1,40 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowUp, Check, Copy, MessageCircle, Smartphone } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { ArrowUp, Check } from "lucide-react";
+import { useAppStore } from "@/lib/store";
 
-const APP_URL = "buildmapper.app";
+function GoogleIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
+      <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
+    </svg>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 21 21" fill="none">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+    </svg>
+  );
+}
+
+function LinkedInIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="#0A66C2">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+    </svg>
+  );
+}
 
 const TRADE_OPTIONS = [
   "Mechanical / HVAC", "Electrical", "Plumbing", "Framing / Structure",
@@ -219,7 +250,10 @@ function PhonePayoff({ trades, locations }: { trades: string[]; locations: strin
           background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
           boxShadow: "0 0 16px rgba(0,200,117,0.4)",
         }}>
-          <Smartphone size={14} color="white" strokeWidth={2.5} />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
         </div>
         <p className="text-[9px] font-semibold text-center" style={{ color: "#F4F4F5" }}>Open on mobile</p>
         <p className="text-[8px] text-center mt-0.5" style={{ color: "#52525B" }}>to see your opportunities</p>
@@ -268,14 +302,12 @@ function PhoneFrame({ phase, trades, locations, slideOverride }: {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function DesktopLanding() {
+  const router = useRouter();
+  const { toggleWhatISell, toggleWhereIOperate, toggleProjectType } = useAppStore();
   const [phase, setPhase] = useState<Phase>("chat");
   const [trades, setTrades] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
   const [scanMessages, setScanMessages] = useState<number[]>([]);
-  const [copied, setCopied] = useState(false);
-  const [smsPhone, setSmsPhone] = useState("");
-  const [smsSent, setSmsSent] = useState(false);
-  const [smsSending, setSmsSending] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [phoneSlide, setPhoneSlide] = useState(0);
@@ -297,30 +329,10 @@ export default function DesktopLanding() {
     SCAN_MESSAGES.forEach((_, i) => {
       timeouts.push(setTimeout(() => setScanMessages((prev) => [...prev, i]), i * 900 + 400));
     });
-    // Advance to payoff after all messages
-    timeouts.push(setTimeout(() => setPhase("payoff"), SCAN_MESSAGES.length * 900 + 1200));
+    // Navigate to /working after animation — user sees real results before auth gate
+    timeouts.push(setTimeout(() => router.push("/working"), SCAN_MESSAGES.length * 900 + 1200));
     return () => timeouts.forEach(clearTimeout);
   }, [phase]);
-
-  const handleCopy = async () => {
-    try { await navigator.clipboard.writeText(APP_URL); } catch {}
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleSMS = async () => {
-    if (!smsPhone.trim() || smsSending) return;
-    setSmsSending(true);
-    try {
-      await fetch("/api/notify/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: smsPhone.trim() }),
-      });
-    } catch (_) {}
-    setSmsSent(true);
-    setSmsSending(false);
-  };
 
   const handleChatSubmit = async (text: string) => {
     const trimmed = text.trim();
@@ -334,8 +346,17 @@ export default function DesktopLanding() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.trades?.length) setTrades(data.trades);
-        if (data.cities?.length) setLocations(data.cities);
+        if (data.trades?.length) {
+          setTrades(data.trades);
+          data.trades.forEach((t: string) => toggleWhatISell(t));
+        }
+        if (data.cities?.length) {
+          setLocations(data.cities);
+          data.cities.forEach((c: string) => toggleWhereIOperate(c));
+        }
+        if (data.projectTypes?.length) {
+          data.projectTypes.forEach((t: string) => toggleProjectType(t));
+        }
       }
     } catch (_) {}
     setChatLoading(false);
@@ -524,81 +545,66 @@ export default function DesktopLanding() {
               Your results are ready — open Scout on your phone to see them.
             </p>
 
-            {/* Mobile handoff card */}
+            {/* Sign in to access results */}
             <div className="rounded-2xl p-6 mb-4" style={{
               background: "#1C1C22",
               border: "1px solid rgba(0,200,117,0.15)",
               boxShadow: "0 0 40px rgba(0,200,117,0.06)",
             }}>
-              {/* URL row */}
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-2 flex-1 px-4 py-3 rounded-xl" style={{ background: "#141418", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <Smartphone size={14} style={{ color: "#52525B", flexShrink: 0 }} />
-                  <span className="text-[14px] font-mono" style={{ color: "#71717A" }}>{APP_URL}</span>
-                </div>
+              <p className="text-[12px] font-semibold uppercase tracking-widest mb-4" style={{ color: "#3F3F46" }}>
+                Sign in to see your opportunities
+              </p>
+              <div className="flex flex-col gap-3">
                 <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-2 px-4 py-3 rounded-xl text-[14px] font-semibold transition-all duration-200"
-                  style={{
-                    background: copied ? "rgba(0,200,117,0.1)" : "rgba(255,255,255,0.05)",
-                    color: copied ? "#34D399" : "#A1A1AA",
-                    border: `1px solid ${copied ? "rgba(0,200,117,0.2)" : "rgba(255,255,255,0.08)"}`,
-                  }}
+                  onClick={() => signIn("google", { callbackUrl: "/scout" })}
+                  className="pressable w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold"
+                  style={{ background: "#fff", color: "#111" }}
                 >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? "Copied!" : "Copy"}
+                  <GoogleIcon /> Continue with Google
+                </button>
+                <button
+                  onClick={() => signIn("microsoft-entra-id", { callbackUrl: "/scout" })}
+                  className="pressable w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#F4F4F5" }}
+                >
+                  <MicrosoftIcon /> Continue with Microsoft
+                </button>
+                <button
+                  onClick={() => signIn("linkedin", { callbackUrl: "/scout" })}
+                  className="pressable w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#F4F4F5" }}
+                >
+                  <LinkedInIcon /> Continue with LinkedIn
                 </button>
               </div>
-
-              {/* SMS CTA */}
-              {smsSent ? (
-                <div
-                  className="w-full py-4 rounded-xl text-[15px] font-semibold flex items-center justify-center gap-2"
-                  style={{ background: "rgba(0,200,117,0.1)", color: "#34D399", border: "1px solid rgba(0,200,117,0.2)" }}
-                >
-                  <Check size={16} />
-                  Link sent to your phone
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="tel"
-                    value={smsPhone}
-                    onChange={(e) => setSmsPhone(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSMS()}
-                    placeholder="Your phone number"
-                    className="flex-1 px-4 py-3 rounded-xl text-[14px]"
-                    style={{
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      color: "#F4F4F5",
-                      outline: "none",
-                    }}
-                  />
-                  <button
-                    onClick={handleSMS}
-                    disabled={!smsPhone.trim() || smsSending}
-                    className="pressable flex items-center gap-2 px-4 py-3 rounded-xl text-[14px] font-semibold transition-all duration-200 flex-shrink-0"
-                    style={
-                      smsPhone.trim()
-                        ? { background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,200,117,0.25)" }
-                        : { background: "rgba(255,255,255,0.05)", color: "#52525B" }
-                    }
-                  >
-                    <MessageCircle size={15} />
-                    {smsSending ? "Sending…" : "Text me"}
-                  </button>
-                </div>
-              )}
             </div>
 
             <button
-              onClick={() => { setPhase("chat"); setTrades([]); setLocations([]); }}
-              className="text-[13px] transition-colors duration-150"
+              onClick={() => window.location.href = "/opportunities"}
+              className="text-[13px] transition-colors duration-150 text-center w-full"
               style={{ color: "#52525B" }}
             >
-              ← Start over
+              I'll do this later →
             </button>
+
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => { setPhase("chat"); setTrades([]); setLocations([]); }}
+                className="text-[13px] transition-colors duration-150"
+                style={{ color: "#52525B" }}
+              >
+                ← Start over
+              </button>
+              {process.env.NODE_ENV !== "production" && (
+                <button
+                  onClick={() => signIn("credentials", { callbackUrl: "/scout" })}
+                  className="text-[12px] px-3 py-1.5 rounded-lg"
+                  style={{ color: "#3F3F46", border: "1px dashed rgba(255,255,255,0.1)" }}
+                >
+                  Skip login (test mode)
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

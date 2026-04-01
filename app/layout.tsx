@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import SessionWrapper from "@/components/ui/SessionWrapper";
 
 export const metadata: Metadata = {
   title: "BuildMapper",
@@ -28,10 +29,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-base min-h-dvh flex justify-center">
-        {/* Mobile shell — phone width, centered on desktop */}
-        <div className="relative w-full max-w-[430px] min-h-dvh bg-base overflow-x-hidden">
-          {children}
-        </div>
+        <SessionWrapper>
+          {/* Mobile shell — phone width, centered on desktop */}
+          <div className="relative w-full max-w-[430px] min-h-dvh bg-base overflow-x-hidden">
+            {children}
+          </div>
+        </SessionWrapper>
       </body>
     </html>
   );

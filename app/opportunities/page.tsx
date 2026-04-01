@@ -144,7 +144,7 @@ export default function OpportunitiesPage() {
                 <span style={{ color: "#3F3F46" }}>Loading…</span>
               ) : (
                 <>
-                  {baseList.length} opportunities · {counts.hot} hot
+                  Scout found {baseList.length} leads · {counts.hot} need attention
                   {activeIntent && (
                     <span style={{ color: "#3F3F46" }}> · "{activeIntent}"</span>
                   )}

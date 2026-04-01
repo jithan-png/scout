@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, MessageCircle } from "lucide-react";
+import { signIn, useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
 import { MOCK_AGENT_UPDATES } from "@/lib/mock-data";
 import { runScout } from "@/lib/api";
@@ -52,6 +53,7 @@ const TYPE_COLOR: Record<UpdateType, string> = {
 
 export default function WorkingPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { activeIntent, addAgentUpdate, finishAgent, agentUpdates, setScoutBriefing, setCoverageNote, setOpportunities, opportunities, setWhatsappPhone, whatsappPhone } =
     useAppStore();
   const [animationDone, setAnimationDone] = useState(false);
@@ -305,14 +307,14 @@ export default function WorkingPage() {
                 {liveCount ?? (realDataRef.current?.length ?? 5)}
               </p>
               <p className="text-[20px] font-semibold" style={{ color: "#F4F4F5" }}>
-                opportunities found
+                leads found in your market
               </p>
               <div className="flex items-center justify-center gap-4 mt-2">
                 <span className="text-[13px]" style={{ color: "#52525B" }}>
-                  {realDataRef.current?.filter((o) => o.priority === "hot").length ?? 3} hot
+                  {realDataRef.current?.filter((o) => o.priority === "hot").length ?? 3} need action
                 </span>
                 <span className="w-1 h-1 rounded-full" style={{ background: "#3F3F46" }} />
-                <span className="text-[13px]" style={{ color: "#52525B" }}>
+                <span className="text-[13px]" style={{ color: "#F59E0B" }}>
                   {realDataRef.current?.filter((o) => o.relationship.hasWarmPath).length ?? 1} warm path
                 </span>
                 <span className="w-1 h-1 rounded-full" style={{ background: "#3F3F46" }} />
@@ -329,7 +331,7 @@ export default function WorkingPage() {
                   className="text-[10px] font-semibold uppercase tracking-widest mb-3"
                   style={{ color: "#3F3F46" }}
                 >
-                  Your top lead right now
+                  Scout's top pick for you
                 </p>
                 <OpportunityCard
                   opportunity={opportunities[0]}
@@ -385,7 +387,7 @@ export default function WorkingPage() {
                     <div className="flex items-center gap-2.5 mb-3">
                       <MessageCircle size={15} style={{ color: "#25D366" }} strokeWidth={2} />
                       <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>
-                        Get alerted about opportunities like this
+                        Get notified when Scout finds new leads
                       </p>
                     </div>
                     <div
@@ -452,13 +454,54 @@ export default function WorkingPage() {
               </div>
             </div>
 
+            {/* ── Conversion gate (unauthenticated only) ── */}
+            {!session && (
+              <div
+                className="w-full rounded-2xl p-5 animate-fade-up"
+                style={{
+                  background: "linear-gradient(135deg, rgba(0,200,117,0.08) 0%, rgba(0,200,117,0.03) 100%)",
+                  border: "1px solid rgba(0,200,117,0.2)",
+                  animationDelay: "500ms",
+                }}
+              >
+                <p className="text-[16px] font-bold mb-1" style={{ color: "#F4F4F5" }}>
+                  Save these results
+                </p>
+                <p className="text-[13px] mb-4" style={{ color: "#71717A" }}>
+                  Create your account to save these leads, get daily briefings, and ask Scout who you know at each company.
+                </p>
+                <button
+                  onClick={() => signIn("google", { callbackUrl: "/scout" })}
+                  className="pressable w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold mb-3"
+                  style={{ background: "#fff", color: "#111" }}
+                >
+                  <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+                    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
+                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
+                    <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z" fill="#FBBC05"/>
+                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
+                  </svg>
+                  Continue with Google
+                </button>
+                {process.env.NODE_ENV !== "production" && (
+                  <button
+                    onClick={() => signIn("credentials", { callbackUrl: "/scout" })}
+                    className="w-full text-center text-[11px] py-2 rounded-xl"
+                    style={{ color: "#3F3F46", border: "1px dashed rgba(255,255,255,0.08)" }}
+                  >
+                    Skip login (test mode)
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* ── See all leads link ── */}
             <button
               onClick={() => router.push("/opportunities")}
               className="pressable text-[14px] font-semibold text-center py-4 mt-1"
               style={{ color: "#52525B" }}
             >
-              See all {liveCount ?? opportunities.length} opportunities →
+              {session ? `See all ${liveCount ?? opportunities.length} opportunities →` : "Browse without an account →"}
             </button>
 
           </div>

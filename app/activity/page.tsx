@@ -170,10 +170,10 @@ export default function ActivityPage() {
               <Bell size={22} style={{ color: "#3F3F46" }} strokeWidth={1.75} />
             </div>
             <p className="text-[14px] font-semibold" style={{ color: "#52525B" }}>
-              No activity yet
+              Nothing yet
             </p>
-            <p className="text-[13px] mt-1" style={{ color: "#3F3F46" }}>
-              Scout will notify you when new opportunities are found
+            <p className="text-[13px] mt-1 text-center leading-relaxed" style={{ color: "#3F3F46", maxWidth: 240 }}>
+              Scout will alert you when it finds new leads, spots a warm path, or thinks you should follow up.
             </p>
           </div>
         )}

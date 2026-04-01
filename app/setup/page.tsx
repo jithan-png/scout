@@ -328,7 +328,7 @@ function SetupPageInner() {
           >
             <Sparkles size={13} style={{ color: "#00C875", flexShrink: 0 }} />
             <p className="text-[12px]" style={{ color: "#34D399" }}>
-              Pre-filled from your message — review and confirm
+              Scout understood your profile — review and confirm
             </p>
           </div>
         )}
@@ -343,7 +343,7 @@ function SetupPageInner() {
               What do you sell?
             </h2>
             <p className="text-[14px] mb-2" style={{ color: "#52525B" }}>
-              Scout matches live permits to your trade.
+              Scout scans permits and tenders that match what you build.
             </p>
 
             {/* Selected count */}
@@ -442,7 +442,7 @@ function SetupPageInner() {
               Where do you work?
             </h2>
             <p className="text-[14px] mb-5" style={{ color: "#52525B" }}>
-              Add any city, region, or province — anywhere.
+              Scout will watch these markets and alert you when the right projects appear.
             </p>
 
             {/* Tag input box */}
@@ -576,7 +576,7 @@ function SetupPageInner() {
                 }
           }
         >
-          {isFinalStep ? "Find opportunities" : "Next"}
+          {isFinalStep ? "Start scouting my market" : "Next"}
           {canProceed && <ArrowRight size={16} strokeWidth={2.5} />}
         </button>
       </div>

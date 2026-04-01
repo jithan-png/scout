@@ -34,11 +34,16 @@ Formatting rules:
 - Short paragraphs. No bullet points unless the user asks for a list.
 - When drafting emails or messages, write them immediately — don't ask for clarification unless a name or company is completely missing.
 - When you search the web, weave the results naturally into your answer. Don't just dump links.
-- Always tie answers back to the user's trade and location context.`;
+- Always tie answers back to the user's trade and location context.
+
+Structured block rules — append ONE of these markers at the very end of your response (after all text) when relevant:
+- When you draft an outreach email or follow-up message, append: __BLOCK__{"type":"email_draft","subject":"<subject line>","body":"<full email body>"}
+- Do NOT append a block for general advice, market analysis, or any response that is not a draft email.
+- Only one block per response. Never mid-response.`;
 }
 
 export async function POST(req: NextRequest) {
-  const { message, history = [], userProfile = {} } = await req.json();
+  const { message, history = [], userProfile = {}, isDailyBriefing = false } = await req.json();
 
   if (!message?.trim()) {
     return new Response("message required", { status: 400 });
@@ -58,6 +63,12 @@ export async function POST(req: NextRequest) {
     cities: (userProfile.cities as string[]) ?? [],
     projectTypes: (userProfile.projectTypes as string[]) ?? [],
   };
+
+  let systemPrompt = buildSystemPrompt(profile);
+  if (isDailyBriefing) {
+    systemPrompt +=
+      "\n\nYou are opening the day for this construction sales rep. Lead with the most important 3–5 things they should know today. Use web search to find real permit activity in their market right now. Be specific and concise — no fluff. End with a natural invitation for them to ask follow-up questions or take action on a specific lead.";
+  }
 
   const messages: Anthropic.MessageParam[] = [
     ...(history as { role: string; content: string }[])
@@ -79,7 +90,7 @@ export async function POST(req: NextRequest) {
           model: "claude-sonnet-4-6",
           max_tokens: 2048,
           tools,
-          system: buildSystemPrompt(profile),
+          system: systemPrompt,
           messages,
         });
 

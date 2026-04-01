@@ -1,12 +1,13 @@
 import type {
-  Opportunity,
+  ScoutOpportunity,
   Alert,
   AgentUpdate,
   DataConnection,
   SearchIntent,
 } from "./types";
 
-export const MOCK_OPPORTUNITIES: Opportunity[] = [
+export const MOCK_OPPORTUNITIES: ScoutOpportunity[] = [
+  // ── opp-1: PERMIT — contact row, unit count, stage badge ──────────────────
   {
     id: "opp-1",
     project: {
@@ -64,27 +65,79 @@ export const MOCK_OPPORTUNITIES: Opportunity[] = [
     actionType: "email",
     timing: "3 days ago",
     savedAt: undefined,
+    // ScoutOpportunity fields
+    scoreBreakdown: {
+      total: 94,
+      request_fit: 28,
+      timing: 18,
+      commercial: 14,
+      relationship: 24,
+      confidence: 10,
+      priority: "hot",
+    },
+    primarySource: "permit",
+    sourceRecords: [
+      {
+        source_type: "permit",
+        confidence: "high",
+        title: "Building Permit BP-2026-1842 — Kelowna",
+        excerpt:
+          "6-storey mixed-use building, 42 residential units, ground floor commercial. Permit issued March 25, 2026.",
+        source_date: "2026-03-25",
+        source_url: "https://permits.kelowna.ca/BP-2026-1842",
+      },
+    ],
+    unitCount: 42,
+    storeyCount: 6,
+    projectStatus: "Permitted",
+    earliestSignalDate: "2026-03-25",
+    companies: [
+      {
+        id: "co-1",
+        name: "Skyline Developments",
+        roles: ["Developer", "Owner"],
+        website: "skylinedev.ca",
+      },
+    ],
+    contacts: [
+      {
+        id: "ct-1",
+        name: "James Kowalski",
+        role: "Project Manager",
+        email: "james.k@skylinedev.ca",
+        phone: "250-555-0142",
+      },
+      {
+        id: "ct-2",
+        name: "Amanda Chen",
+        role: "Estimator",
+        email: "a.chen@skylinedev.ca",
+      },
+    ],
   },
+
+  // ── opp-2: PROCUREMENT — tender URL, closing date, no warm path ───────────
   {
     id: "opp-2",
     project: {
       id: "proj-2",
-      name: "Penticton Industrial Warehouse",
-      address: "150 Industrial Ave",
+      name: "BC Infrastructure: Penticton Aquatic Centre Expansion",
+      address: "583 Power St",
       city: "Penticton",
-      type: "Industrial",
-      value: 2100000,
+      type: "Institutional",
+      value: 8200000,
       stage: "pre_construction",
-      issuedDate: "2026-03-20",
+      issuedDate: "2026-03-18",
       description:
-        "New 18,000 sqft distribution warehouse. Steel structure, slab-on-grade. Electrical and plumbing trades needed.",
+        "Expansion of existing aquatic facility — new 50m lap pool, accessible changerooms, mechanical and HVAC systems. Public tender open to qualified trade contractors.",
     },
     company: {
       id: "co-2",
-      name: "Okanagan Build Corp",
+      name: "BC Infrastructure Benefits",
       type: "gc",
-      size: "10-50",
-      recentProjects: 3,
+      size: "200+",
+      recentProjects: 24,
+      website: "bcib.ca",
     },
     relationship: {
       hasWarmPath: false,
@@ -95,27 +148,66 @@ export const MOCK_OPPORTUNITIES: Opportunity[] = [
     },
     matchReasons: [
       {
-        label: "Value range",
-        detail: "$2.1M fits your target",
+        label: "HVAC package",
+        detail: "$1.4M mechanical scope matches your profile",
+        type: "trade",
+      },
+      {
+        label: "High value",
+        detail: "$8.2M total project",
         type: "value",
       },
       {
-        label: "Pre-construction",
-        detail: "Ideal timing to get in early",
+        label: "Closes Apr 14",
+        detail: "14 days to submit",
         type: "timing",
       },
     ],
-    score: 71,
+    score: 76,
     priority: "warm",
-    suggestedAction: "Research key contacts at Okanagan Build",
+    suggestedAction: "Download tender documents and review scope before deadline",
     actionType: "research",
-    timing: "8 days ago",
+    timing: "13 days ago",
+    // ScoutOpportunity fields
+    scoreBreakdown: {
+      total: 76,
+      request_fit: 26,
+      timing: 14,
+      commercial: 15,
+      relationship: 11,
+      confidence: 10,
+      priority: "warm",
+    },
+    primarySource: "procurement",
+    sourceRecords: [
+      {
+        source_type: "procurement",
+        confidence: "high",
+        title: "BCIB Tender T-2026-0412: Penticton Aquatic Centre Expansion",
+        excerpt:
+          "Invitation to tender for mechanical, electrical, and specialty trade packages. Mandatory site visit April 8. Submissions close April 14, 2026 at 2:00 PM PST.",
+        source_date: "2026-04-14",
+        source_url: "https://bcib.ca/tenders/T-2026-0412",
+      },
+    ],
+    projectStatus: "Tender Open",
+    earliestSignalDate: "2026-03-18",
+    companies: [
+      {
+        id: "co-2",
+        name: "BC Infrastructure Benefits",
+        roles: ["Owner", "Procurement"],
+        website: "bcib.ca",
+      },
+    ],
   },
+
+  // ── opp-3: LINKEDIN — quoted excerpt, poster attribution, warm path ────────
   {
     id: "opp-3",
     project: {
       id: "proj-3",
-      name: "Vernon Seniors Living",
+      name: "Vernon Seniors Living — Phase 3",
       address: "3200 Highway 6",
       city: "Vernon",
       type: "Multi-Family",
@@ -167,27 +259,77 @@ export const MOCK_OPPORTUNITIES: Opportunity[] = [
     suggestedAction: "Ask Rachel for an intro to the PM",
     actionType: "connect",
     timing: "13 days ago",
+    // ScoutOpportunity fields
+    scoreBreakdown: {
+      total: 82,
+      request_fit: 25,
+      timing: 16,
+      commercial: 14,
+      relationship: 20,
+      confidence: 7,
+      priority: "hot",
+    },
+    primarySource: "linkedin",
+    sourceRecords: [
+      {
+        source_type: "linkedin",
+        confidence: "high",
+        title: "Meridian Housing Group is hiring trade contractors for Phase 3",
+        excerpt:
+          "Excited to announce we're moving into the active construction phase on our Vernon seniors community. We have HVAC, fire suppression, and millwork packages available for qualified local subs. DM or email procurement@meridianhousing.ca with your trade and capacity.",
+        linkedin_post_url: "https://linkedin.com/posts/meridian-housing-123456",
+        poster_name: "David Park",
+        poster_company: "Meridian Housing Group",
+        source_date: "2026-03-15",
+      },
+    ],
+    projectStatus: "Active Construction",
+    earliestSignalDate: "2026-03-15",
+    companies: [
+      {
+        id: "co-3",
+        name: "Meridian Housing Group",
+        roles: ["Developer", "Owner"],
+        website: "meridianhousing.ca",
+      },
+    ],
+    contacts: [
+      {
+        id: "ct-3",
+        name: "Rachel Torres",
+        role: "Estimator",
+        email: "r.torres@meridianhousing.ca",
+      },
+      {
+        id: "ct-4",
+        name: "David Park",
+        role: "VP Construction",
+        email: "d.park@meridianhousing.ca",
+      },
+    ],
   },
+
+  // ── opp-4: WEB — article title, excerpt snippet ───────────────────────────
   {
     id: "opp-4",
     project: {
       id: "proj-4",
-      name: "Kamloops Office Renovation",
-      address: "680 Victoria St",
+      name: "Kamloops Downtown Revitalization",
+      address: "360 St. Paul St",
       city: "Kamloops",
       type: "Commercial",
-      value: 850000,
-      stage: "permitted",
+      value: 3100000,
+      stage: "pre_construction",
       issuedDate: "2026-03-22",
       description:
-        "Full interior renovation of 4-storey office building. Electrical, millwork, and specialty finishes required.",
+        "Mixed commercial redevelopment of a former retail block. City-funded revitalization project entering design-build procurement phase.",
     },
     company: {
       id: "co-4",
-      name: "Pacific Edge Construction",
-      type: "gc",
-      size: "10-50",
-      recentProjects: 5,
+      name: "City of Kamloops — Development Services",
+      type: "developer",
+      size: "200+",
+      recentProjects: 8,
     },
     relationship: {
       hasWarmPath: false,
@@ -199,17 +341,55 @@ export const MOCK_OPPORTUNITIES: Opportunity[] = [
     matchReasons: [
       { label: "Commercial reno", detail: "Your specialty", type: "trade" },
       {
-        label: "Recently permitted",
-        detail: "Active bidding window",
-        type: "timing",
+        label: "City-funded",
+        detail: "Stable procurement timeline",
+        type: "value",
+      },
+      {
+        label: "Kamloops",
+        detail: "Adjacent to your market",
+        type: "location",
       },
     ],
     score: 58,
     priority: "watch",
-    suggestedAction: "Add to watchlist — connect when bidding opens",
+    suggestedAction: "Monitor for RFQ release — expected Q2 2026",
     actionType: "research",
     timing: "6 days ago",
+    // ScoutOpportunity fields
+    scoreBreakdown: {
+      total: 58,
+      request_fit: 20,
+      timing: 8,
+      commercial: 12,
+      relationship: 8,
+      confidence: 10,
+      priority: "watch",
+    },
+    primarySource: "web",
+    sourceRecords: [
+      {
+        source_type: "web",
+        confidence: "medium",
+        title: "Kamloops secures $3.1M for downtown revitalization — Kamloops This Week",
+        excerpt:
+          "The City of Kamloops has approved funding for a major revitalization project targeting the 300-block of St. Paul Street. The project will include commercial facade upgrades, new streetscaping, and mixed-use infill construction. A design-build RFQ is expected to be issued in Q2 2026.",
+        source_url: "https://kamloopsthisweek.com/news/downtown-revitalization-2026",
+        source_date: "2026-03-22",
+      },
+    ],
+    projectStatus: "Pre-Procurement",
+    earliestSignalDate: "2026-03-22",
+    companies: [
+      {
+        id: "co-4",
+        name: "City of Kamloops",
+        roles: ["Owner", "Procuring Entity"],
+      },
+    ],
   },
+
+  // ── opp-5: PERMIT — strong warm path, incumbent, recent (green timing) ─────
   {
     id: "opp-5",
     project: {
@@ -220,7 +400,7 @@ export const MOCK_OPPORTUNITIES: Opportunity[] = [
       type: "Residential",
       value: 3200000,
       stage: "pre_construction",
-      issuedDate: "2026-03-26",
+      issuedDate: "2026-03-29",
       description:
         "24-unit townhome development. Phase 2 of existing community. GC is repeat client of the developer.",
     },
@@ -254,7 +434,7 @@ export const MOCK_OPPORTUNITIES: Opportunity[] = [
       },
       {
         label: "Just filed",
-        detail: "2 days ago",
+        detail: "Today",
         type: "timing",
       },
       { label: "West Kelowna", detail: "Your market", type: "location" },
@@ -263,7 +443,49 @@ export const MOCK_OPPORTUNITIES: Opportunity[] = [
     priority: "hot",
     suggestedAction: "Call your contact directly — you're the incumbent",
     actionType: "call",
-    timing: "2 days ago",
+    timing: "today",
+    // ScoutOpportunity fields
+    scoreBreakdown: {
+      total: 97,
+      request_fit: 29,
+      timing: 20,
+      commercial: 13,
+      relationship: 25,
+      confidence: 10,
+      priority: "hot",
+    },
+    primarySource: "permit",
+    sourceRecords: [
+      {
+        source_type: "permit",
+        confidence: "high",
+        title: "Building Permit BP-2026-2201 — West Kelowna",
+        excerpt:
+          "24-unit townhome development, Phase 2 of Gellatly Commons. Structural, mechanical, and electrical packages to be awarded.",
+        source_date: "2026-03-29",
+        source_url: "https://permits.westkelowna.ca/BP-2026-2201",
+      },
+    ],
+    unitCount: 24,
+    storeyCount: 3,
+    projectStatus: "Pre-Construction",
+    earliestSignalDate: "2026-03-29",
+    companies: [
+      {
+        id: "co-5",
+        name: "Gellatly Homes",
+        roles: ["Developer", "Owner"],
+      },
+    ],
+    contacts: [
+      {
+        id: "ct-5",
+        name: "Mike Gellatly",
+        role: "Owner / Developer",
+        phone: "250-555-0188",
+        email: "mike@gellatly.ca",
+      },
+    ],
   },
 ];
 

@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, RotateCcw, Zap } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import BottomNav from "@/components/ui/BottomNav";
-import type { ChatMessage } from "@/lib/store";
+import type { ChatMessage, ChatBlock } from "@/lib/store";
+import { Copy, Check, ArrowRight } from "lucide-react";
 
 // ── Personalized power queries ────────────────────────────────────────────────
 
@@ -13,13 +14,114 @@ function getSuggestions(trades: string[], cities: string[], projectTypes: string
   const city = cities[0] || "your area";
   const trade = trades[0] || "your trade";
   return [
-    `Find new ${projectTypes[0] || "commercial"} opportunities for me in ${city}`,
+    `Find new ${projectTypes[0] || "commercial"} projects in ${city} where I have a warm path in`,
     `What permits were filed in ${city} this week?`,
     "Who should I follow up with this week?",
     "Draft a cold intro email for my best lead",
-    `What's the construction market like in ${city} right now?`,
+    `Who do I know at companies working on ${projectTypes[0] || "commercial"} projects in ${city}?`,
     `What tenders are active for ${trade}?`,
   ];
+}
+
+// ── Block parser ─────────────────────────────────────────────────────────────
+
+const BLOCK_MARKER = "__BLOCK__";
+
+function parseBlocks(raw: string): { content: string; blocks: ChatBlock[] } {
+  const idx = raw.indexOf(BLOCK_MARKER);
+  if (idx === -1) return { content: raw, blocks: [] };
+  const content = raw.slice(0, idx).trim();
+  try {
+    const block = JSON.parse(raw.slice(idx + BLOCK_MARKER.length).trim()) as ChatBlock;
+    return { content, blocks: [block] };
+  } catch {
+    return { content, blocks: [] };
+  }
+}
+
+// ── Block renderers ───────────────────────────────────────────────────────────
+
+function EmailDraftBlock({ subject, body }: { subject: string; body: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div
+      className="rounded-2xl p-4 mt-2 animate-fade-up"
+      style={{ background: "#141418", border: "1px solid rgba(0,200,117,0.18)" }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#3F3F46" }}>
+        Draft
+      </p>
+      <p className="text-[12px] font-semibold mb-2" style={{ color: "#A1A1AA" }}>
+        Subject: {subject}
+      </p>
+      <p className="text-[13px] leading-relaxed mb-3 whitespace-pre-wrap" style={{ color: "#E4E4E7" }}>
+        {body}
+      </p>
+      <button
+        onClick={copy}
+        className="pressable flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold"
+        style={{ background: "rgba(0,200,117,0.10)", border: "1px solid rgba(0,200,117,0.2)", color: "#34D399" }}
+      >
+        {copied ? <Check size={12} strokeWidth={2.5} /> : <Copy size={12} strokeWidth={2} />}
+        {copied ? "Copied!" : "Copy to clipboard"}
+      </button>
+    </div>
+  );
+}
+
+function OpportunityPreviewBlock({ opportunityId }: { opportunityId: string }) {
+  const { opportunities } = useAppStore();
+  const router = useRouter();
+  const opp = opportunities.find((o) => o.id === opportunityId);
+  if (!opp) return null;
+  const priorityColor = opp.priority === "hot" ? "#EF4444" : opp.priority === "warm" ? "#F59E0B" : "#71717A";
+  return (
+    <button
+      onClick={() => router.push(`/opportunities/${opp.id}`)}
+      className="pressable w-full text-left mt-2 animate-fade-up"
+    >
+      <div
+        className="rounded-2xl px-4 py-3 flex items-center gap-3"
+        style={{ background: "#141418", border: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: priorityColor }}>
+              {opp.priority}
+            </span>
+            <span className="text-[11px]" style={{ color: "#3F3F46" }}>·</span>
+            <span className="text-[11px]" style={{ color: "#52525B" }}>{opp.score} score</span>
+          </div>
+          <p className="text-[14px] font-semibold truncate" style={{ color: "#F4F4F5" }}>{opp.project.name}</p>
+          <p className="text-[12px] truncate" style={{ color: "#52525B" }}>{opp.company.name}</p>
+        </div>
+        <ArrowRight size={14} style={{ color: "#3F3F46", flexShrink: 0 }} />
+      </div>
+    </button>
+  );
+}
+
+function BlockRenderer({ blocks }: { blocks: ChatBlock[] }) {
+  return (
+    <>
+      {blocks.map((block, i) => {
+        if (block.type === "email_draft") return <EmailDraftBlock key={i} subject={block.subject} body={block.body} />;
+        if (block.type === "opportunity_preview") return <OpportunityPreviewBlock key={i} opportunityId={block.opportunityId} />;
+        if (block.type === "lead_list") return (
+          <div key={i} className="flex flex-col gap-2 mt-2">
+            {block.opportunityIds.map((id) => <OpportunityPreviewBlock key={id} opportunityId={id} />)}
+          </div>
+        );
+        return null;
+      })}
+    </>
+  );
 }
 
 // ── Scout logo ────────────────────────────────────────────────────────────────
@@ -47,6 +149,8 @@ function ScoutPageInner() {
     toggleWhatISell,
     toggleWhereIOperate,
     toggleProjectType,
+    lastBriefingDate,
+    setLastBriefingDate,
   } = useAppStore();
 
   const [input, setInput] = useState("");
@@ -64,6 +168,64 @@ function ScoutPageInner() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, streamingContent]);
+
+  // Daily briefing: auto-stream on first open of each day
+  useEffect(() => {
+    const today = new Date().toDateString();
+    if (setup.completed && chatMessages.length === 0 && lastBriefingDate !== today) {
+      triggerDailyBriefing(today);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const triggerDailyBriefing = async (today: string) => {
+    setIsStreaming(true);
+    setStreamingContent("");
+
+    try {
+      const res = await fetch("/api/chat/scout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Give me my daily briefing. Scan for new permits and tenders in my market, flag any pipeline deals I haven't touched in over a week, and tell me the 3 most important things I should do today.",
+          history: [],
+          userProfile: {
+            trades: setup.whatISell,
+            cities: setup.whereIOperate,
+            projectTypes: setup.projectTypes,
+          },
+          isDailyBriefing: true,
+        }),
+      });
+
+      if (!res.ok || !res.body) {
+        setStreamingContent(null);
+        setIsStreaming(false);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        accumulated += chunk;
+        setStreamingContent(accumulated.trim());
+      }
+
+      const { content: cleanText, blocks } = parseBlocks(accumulated.trim());
+      setStreamingContent(null);
+      addChatMessage({ role: "assistant", content: cleanText, blocks: blocks.length ? blocks : undefined });
+      setLastBriefingDate(today);
+    } catch {
+      setStreamingContent(null);
+    } finally {
+      setIsStreaming(false);
+    }
+  };
 
   // Handle ?q= pre-fill from home page "Ask Scout" strip
   useEffect(() => {
@@ -144,14 +306,17 @@ function ScoutPageInner() {
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         accumulated += chunk;
-        // Stream to UI without the action trigger
-        setStreamingContent(accumulated.replace(/__ACTION:run_scout__/g, "").trim());
+        // Stream to UI — strip action/block markers so they don't flash
+        const displayText = accumulated.replace(/__ACTION:run_scout__/g, "");
+        const blockIdx = displayText.indexOf(BLOCK_MARKER);
+        setStreamingContent((blockIdx !== -1 ? displayText.slice(0, blockIdx) : displayText).trim());
       }
 
-      // Commit final message
-      const cleanText = accumulated.replace(/__ACTION:run_scout__/g, "").trim();
+      // Commit final message — strip action marker first, then parse blocks
+      const stripped = accumulated.replace(/__ACTION:run_scout__/g, "").trim();
+      const { content: cleanText, blocks } = parseBlocks(stripped);
       setStreamingContent(null);
-      addChatMessage({ role: "assistant", content: cleanText });
+      addChatMessage({ role: "assistant", content: cleanText, blocks: blocks.length ? blocks : undefined });
 
       // Execute action if signalled
       if (accumulated.includes("__ACTION:run_scout__")) {
@@ -208,7 +373,7 @@ function ScoutPageInner() {
                 style={{ background: "#00C875", animation: "glowBreathe 3s ease-in-out infinite" }}
               />
               <p className="text-[11px]" style={{ color: "#52525B" }}>
-                Live · Searches web · Takes actions
+                Watching your market · Knows your network
               </p>
             </div>
           </div>
@@ -256,7 +421,7 @@ function ScoutPageInner() {
                   className="text-[14px] text-center leading-relaxed mb-7"
                   style={{ color: "#52525B", maxWidth: 280 }}
                 >
-                  Tell me what you sell and where you work — I&apos;ll start finding opportunities for you.
+                  Tell me what you sell and where you work — I&apos;ll scan permits, tenders, and your network for the right openings.
                 </p>
               </>
             ) : (
@@ -265,7 +430,7 @@ function ScoutPageInner() {
                   What do you need?
                 </p>
                 <p className="text-[13px] text-center mb-7" style={{ color: "#52525B" }}>
-                  Ask about opportunities, permits, companies, or your market. I can draft outreach too.
+                  Ask me about new leads, warm paths to companies, or who you know at a project. I can draft outreach too.
                 </p>
               </>
             )}
@@ -335,6 +500,12 @@ function ScoutPageInner() {
                 />
               )}
             </div>
+            {/* Render structured blocks below assistant message */}
+            {msg.role === "assistant" && msg.blocks && msg.blocks.length > 0 && (
+              <div className="ml-9 max-w-[85%]">
+                <BlockRenderer blocks={msg.blocks} />
+              </div>
+            )}
           </div>
         ))}
 
@@ -442,7 +613,7 @@ function ScoutPageInner() {
           </button>
         </div>
         <p className="text-center text-[10px] mt-2" style={{ color: "#3F3F46" }}>
-          Scout searches the web in real time
+          Scout scans permits, tenders, and your network in real time
         </p>
       </div>
 

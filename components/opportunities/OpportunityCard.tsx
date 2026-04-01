@@ -192,6 +192,20 @@ export default function OpportunityCard({
   const scoutOpp = opportunity as ScoutOpportunity;
   const primarySource: LeadSource = scoutOpp.primarySource ?? "unknown";
   const sourceCount = scoutOpp.sourceRecords?.length ?? 1;
+  const firstRecord = scoutOpp.sourceRecords?.[0];
+  const firstContact = scoutOpp.contacts?.[0];
+
+  // Source-specific derived values
+  const linkedinPoster = primarySource === "linkedin" ? (firstRecord?.poster_name ?? null) : null;
+  const linkedinExcerpt = primarySource === "linkedin" ? (firstRecord?.excerpt ?? null) : null;
+  const tenderUrl = primarySource === "procurement" ? (firstRecord?.source_url ?? null) : null;
+  const tenderDate = primarySource === "procurement" ? (firstRecord?.source_date ?? null) : null;
+  const webTitle = primarySource === "web" ? (firstRecord?.title ?? null) : null;
+  const webExcerpt = primarySource === "web" ? (firstRecord?.excerpt ?? null) : null;
+  const unitCount = scoutOpp.unitCount ?? null;
+  const projectStageLabel = scoutOpp.projectStatus
+    ? scoutOpp.projectStatus.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
 
   return (
     <button
@@ -265,29 +279,75 @@ export default function OpportunityCard({
         >
           {project.name}
         </h3>
-        <p className="text-[13px] mb-3" style={{ color: "#52525B" }}>
+        <p className="text-[13px]" style={{ color: "#52525B" }}>
           {company.name}
         </p>
 
+        {/* ── Contact row (any source) ─── */}
+        {firstContact && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <div
+              className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+              style={{ background: "rgba(245,158,11,0.15)", color: "#F59E0B" }}
+            >
+              {firstContact.name.charAt(0)}
+            </div>
+            <p className="text-[11px]" style={{ color: "#71717A" }}>
+              {firstContact.name} · {firstContact.role}
+            </p>
+          </div>
+        )}
+
+        {/* ── Source-aware narrative line ─── */}
+        {linkedinExcerpt ? (
+          <p className="text-[12px] leading-relaxed mt-1.5 mb-3 italic" style={{ color: "#52525B" }}>
+            &ldquo;{linkedinExcerpt.slice(0, 120)}{linkedinExcerpt.length > 120 ? "…" : ""}&rdquo;
+          </p>
+        ) : webExcerpt ? (
+          <p className="text-[12px] leading-relaxed mt-1.5 mb-3" style={{ color: "#52525B" }}>
+            {webExcerpt.slice(0, 120)}{webExcerpt.length > 120 ? "…" : ""}
+          </p>
+        ) : matchReasons[0]?.detail ? (
+          <p className="text-[12px] leading-relaxed mt-1.5 mb-3" style={{ color: "#52525B" }}>
+            {matchReasons[0].detail}
+          </p>
+        ) : (
+          <div className="mb-3" />
+        )}
+
         {/* ── Meta row ─── */}
-        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-          <MapPin size={10} style={{ color: "#3F3F46" }} />
-          <span className="text-[12px]" style={{ color: "#71717A" }}>
-            {project.city}
-          </span>
-          <span style={{ color: "#3F3F46" }}>·</span>
-          <span
-            className="text-[12px] font-semibold"
-            style={{ color: "#71717A" }}
-          >
-            {formatValue(project.value)}
-          </span>
-          <span style={{ color: "#3F3F46" }}>·</span>
-          <Clock size={10} style={{ color: "#3F3F46" }} />
-          <span className="text-[12px]" style={{ color: "#71717A" }}>
-            {timing}
-          </span>
-        </div>
+        {(() => {
+          const isRecent = /just|today|hour|1\s*day/i.test(timing);
+          return (
+            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+              <MapPin size={10} style={{ color: "#3F3F46" }} />
+              <span className="text-[12px]" style={{ color: "#71717A" }}>
+                {project.city}
+              </span>
+              <span style={{ color: "#3F3F46" }}>·</span>
+              <span className="text-[12px] font-semibold" style={{ color: "#71717A" }}>
+                {formatValue(project.value)}
+              </span>
+              {unitCount && (
+                <>
+                  <span style={{ color: "#3F3F46" }}>·</span>
+                  <span className="text-[12px]" style={{ color: "#71717A" }}>{unitCount} units</span>
+                </>
+              )}
+              {projectStageLabel && (
+                <>
+                  <span style={{ color: "#3F3F46" }}>·</span>
+                  <span className="text-[12px]" style={{ color: "#71717A" }}>{projectStageLabel}</span>
+                </>
+              )}
+              <span style={{ color: "#3F3F46" }}>·</span>
+              <Clock size={10} style={{ color: isRecent ? "#00C875" : "#3F3F46" }} />
+              <span className="text-[12px]" style={{ color: isRecent ? "#34D399" : "#71717A" }}>
+                {timing}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* ── Warm path ─── */}
         {relationship.hasWarmPath && (
@@ -344,17 +404,44 @@ export default function OpportunityCard({
           ))}
         </div>
 
-        {/* ── Suggested action ─── */}
+        {/* ── LinkedIn poster attribution ─── */}
+        {linkedinPoster && (
+          <p className="text-[11px] mb-3" style={{ color: "#3F3F46" }}>
+            via {linkedinPoster}{firstRecord?.poster_company ? ` · ${firstRecord.poster_company}` : ""}
+          </p>
+        )}
+
+        {/* ── Web title ─── */}
+        {webTitle && !webExcerpt && (
+          <p className="text-[11px] mb-3 truncate" style={{ color: "#3F3F46" }}>
+            {webTitle}
+          </p>
+        )}
+
+        {/* ── Tender date ─── */}
+        {tenderDate && (
+          <p className="text-[11px] mb-3" style={{ color: "#A78BFA" }}>
+            Closes {new Date(tenderDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+          </p>
+        )}
+
+        {/* ── Suggested action / tender CTA ─── */}
         <div
           className="pt-3"
           style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
         >
-          <p
-            className="text-[12px] font-semibold"
-            style={{ color: "#34D399" }}
-          >
-            {suggestedAction}
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "#3F3F46" }}>
+            Next step
           </p>
+          {tenderUrl ? (
+            <p className="text-[12px] font-semibold" style={{ color: "#A78BFA" }}>
+              View tender document →
+            </p>
+          ) : (
+            <p className="text-[12px] font-semibold" style={{ color: "#34D399" }}>
+              {suggestedAction}
+            </p>
+          )}
         </div>
       </div>
     </button>

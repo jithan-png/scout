@@ -29,7 +29,7 @@ function BLogo({ size = 13 }: { size?: number }) {
 const QUICK_ACTIONS = [
   { label: "Draft an intro email",      icon: FileText,   query: "Draft an intro email for this lead" },
   { label: "Is this worth pursuing?",   icon: TrendingUp, query: "Is this lead worth pursuing? Give me a direct answer." },
-  { label: "Find similar opportunities", icon: Search,     query: "Find me similar opportunities to this one" },
+  { label: "Show me similar leads",       icon: Search,     query: "Find me similar leads to this one in my area" },
   { label: "What's my best angle?",     icon: Zap,        query: "What's the best angle for approaching this company?" },
 ];
 
@@ -184,7 +184,7 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
               <p className="text-[11px] leading-tight" style={{ color: "#52525B" }}>
                 {context
                   ? `Context: ${context}`
-                  : "Searches web · Drafts outreach · Takes actions"}
+                  : "Knows your leads · Drafts outreach · Spots warm paths"}
               </p>
             </div>
           </div>
@@ -214,8 +214,7 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
                 What do you need?
               </p>
               <p className="text-[12px] leading-relaxed mb-6" style={{ color: "#52525B" }}>
-                Scout can search the web, analyze this lead,
-                draft outreach, or find similar opportunities.
+                Scout can analyze this lead, find warm paths to the company, draft outreach, or search for similar projects.
               </p>
               {/* Action chips */}
               <div className="flex flex-col gap-2 w-full text-left">

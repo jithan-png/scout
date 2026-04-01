@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Sparkles, LayoutList, Bell, User } from "lucide-react";
+import { Sparkles, LayoutList, Bell, User } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 
 const NAV_ITEMS = [
-  { href: "/",              icon: Home,       label: "Home",    exact: true  },
   { href: "/scout",         icon: Sparkles,   label: "Scout",   exact: false },
   { href: "/opportunities", icon: LayoutList, label: "Opps",    exact: false },
   { href: "/activity",      icon: Bell,       label: "Activity",exact: false },

@@ -402,30 +402,16 @@ export async function runScout(
     };
   } catch (err) {
     console.warn("runScout failed, falling back to mock data:", err);
-    // Import mock data and wrap with stub ScoutOpportunity fields
     const { MOCK_OPPORTUNITIES } = await import("./mock-data");
-    const fallback: ScoutOpportunity[] = MOCK_OPPORTUNITIES.map((o) => ({
-      ...o,
-      scoreBreakdown: {
-        total: o.score,
-        request_fit: Math.round(o.score * 0.30),
-        timing: Math.round(o.score * 0.20),
-        commercial: Math.round(o.score * 0.15),
-        relationship: o.relationship.hasWarmPath ? Math.round(o.score * 0.25) : 0,
-        confidence: Math.round(o.score * 0.10),
-        priority: o.priority,
-      },
-      primarySource: "permit" as LeadSource,
-      sourceRecords: [
-        {
-          source_type: "permit" as LeadSource,
-          confidence: "medium" as const,
-          title: "Mock permit record",
-          excerpt: o.project.description,
-        },
-      ],
-    }));
-    return { opportunities: fallback, coverageNote: "", sourcesUsed: ["permit"] };
+    const sourcesUsed = [...new Set(MOCK_OPPORTUNITIES.map((o) => o.primarySource))] as LeadSource[];
+    return {
+      opportunities: [...MOCK_OPPORTUNITIES].sort((a, b) => {
+        const order: Record<string, number> = { hot: 0, warm: 1, watch: 2 };
+        return (order[a.priority] ?? 2) - (order[b.priority] ?? 2);
+      }),
+      coverageNote: "Showing demo data — connect to live backend for real results",
+      sourcesUsed,
+    };
   }
 }
 

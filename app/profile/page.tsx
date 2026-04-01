@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import {
   MessageCircle,
   Mail,
@@ -37,11 +38,11 @@ const CONNECTION_ACCENT: Record<DataConnection["type"], string> = {
 };
 
 const CONNECTION_DESC: Record<DataConnection["type"], string> = {
-  whatsapp: "Lead alerts & relationship intel on WhatsApp",
-  gmail: "Map email history into a relationship graph",
-  contacts: "Find warm paths via phone contacts",
-  crm: "Sync pipeline with your existing CRM",
-  excel: "Import customer / contact list via CSV",
+  whatsapp: "Get proactive lead alerts and follow-up nudges",
+  gmail: "Find warm paths through your email history",
+  contacts: "Discover who you already know at target companies",
+  crm: "Keep your pipeline in sync across tools",
+  excel: "Import your contacts to unlock hidden warm paths",
 };
 
 const CONNECTION_DETAIL: Record<DataConnection["type"], { what: string; how: string; cta: string }> = {
@@ -51,12 +52,12 @@ const CONNECTION_DETAIL: Record<DataConnection["type"], { what: string; how: str
     cta: "Set up in wizard",
   },
   gmail: {
-    what: "Scout reads your sent email history to map relationship strength — who you know, how often you've been in touch, and how recently.",
+    what: "Scout reads your email history to understand who you know and how warm each relationship is — so it can surface the best path into every opportunity.",
     how: "A secure OAuth connection. Scout only reads, never sends. Your data stays private.",
     cta: "Connect Gmail",
   },
   contacts: {
-    what: "Scout checks your phone contacts to find warm paths to contractors and builders — people you may already know.",
+    what: "Scout cross-references your phone contacts with permit applicants and project companies to find hidden warm paths you didn't know you had.",
     how: "Your contacts are matched locally. Nothing is uploaded or stored externally.",
     cta: "Set up in wizard",
   },
@@ -66,8 +67,8 @@ const CONNECTION_DETAIL: Record<DataConnection["type"], { what: string; how: str
     cta: "Coming soon",
   },
   excel: {
-    what: "Import your own customer or contact list from Excel or CSV to instantly enrich Scout's warm path matching.",
-    how: "Upload a file with Name, Company, Email columns. Scout will match against live permit data.",
+    what: "Import your customer or contact list to instantly unlock warm paths — Scout will match your contacts against live permit and project data.",
+    how: "Upload a file with Name, Company, and Email columns. Scout handles the rest.",
     cta: "Set up in wizard",
   },
 };
@@ -417,7 +418,7 @@ function ScoutConfigBody() {
         className="pressable text-[13px] font-semibold text-left"
         style={{ color: "#00C875" }}
       >
-        Edit configuration →
+        Update my profile →
       </button>
     </div>
   );
@@ -434,7 +435,7 @@ export default function ProfilePage() {
   const handleSignOut = () => {
     if (confirm("Sign out and clear all your data?")) {
       resetStore();
-      router.push("/");
+      signOut({ callbackUrl: "/" });
     }
   };
 
@@ -450,7 +451,7 @@ export default function ProfilePage() {
           Profile
         </h1>
         <p className="text-[13px] mt-0.5" style={{ color: "#52525B" }}>
-          Your Scout configuration
+          Your intelligence profile
         </p>
       </header>
 
@@ -464,7 +465,7 @@ export default function ProfilePage() {
             className="text-[10px] font-semibold uppercase tracking-widest mb-3"
             style={{ color: "#3F3F46" }}
           >
-            Data sources
+            Intelligence sources
           </p>
           <div className="flex flex-col gap-2">
             {connections.map((conn) => (

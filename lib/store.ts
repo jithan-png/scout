@@ -32,9 +32,15 @@ interface SetupState {
 
 // ── App store ───────────────────────────────────────────────────────────────
 
+export type ChatBlock =
+  | { type: "email_draft"; subject: string; body: string }
+  | { type: "opportunity_preview"; opportunityId: string }
+  | { type: "lead_list"; opportunityIds: string[] };
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  blocks?: ChatBlock[];
 }
 
 interface AppStore {
@@ -102,6 +108,10 @@ interface AppStore {
   closeChat: () => void;
   addChatMessage: (msg: ChatMessage) => void;
   clearChat: () => void;
+
+  // Daily briefing
+  lastBriefingDate: string | null;
+  setLastBriefingDate: (date: string) => void;
 
   // Reset
   resetStore: () => void;
@@ -282,6 +292,10 @@ export const useAppStore = create<AppStore>()(
         set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
       clearChat: () => set({ chatMessages: [] }),
 
+      // ── Daily briefing ────────────────────────────────────────────────────────
+      lastBriefingDate: null,
+      setLastBriefingDate: (date) => set({ lastBriefingDate: date }),
+
       resetStore: () =>
         set({
           user: null,
@@ -310,6 +324,7 @@ export const useAppStore = create<AppStore>()(
           unreadCount: 0,
           chatMessages: [],
           isChatOpen: false,
+          lastBriefingDate: null,
         }),
     }),
     {
@@ -323,6 +338,7 @@ export const useAppStore = create<AppStore>()(
         savedOpportunityIds: [...state.savedOpportunityIds], // Set → Array for JSON
         alerts: state.alerts,
         unreadCount: state.unreadCount,
+        lastBriefingDate: state.lastBriefingDate,
       }),
       // Rehydrate: convert saved Array back to Set
       merge: (persisted, current) => {
