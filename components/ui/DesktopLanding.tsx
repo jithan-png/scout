@@ -383,17 +383,30 @@ export default function DesktopLanding() {
       <div className="relative z-10 flex flex-col justify-center flex-1 px-14 xl:px-20 overflow-y-auto py-12" style={{ maxWidth: 640 }}>
 
         {/* Logo — always visible */}
-        <div className="flex items-center gap-3 mb-10">
-          <div className="rounded-[14px] flex items-center justify-center flex-shrink-0" style={{
-            width: 36, height: 36,
-            background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
-            boxShadow: "0 0 20px rgba(0,200,117,0.35)",
-          }}>
-            <BLogo size={18} />
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-3">
+            <div className="rounded-[14px] flex items-center justify-center flex-shrink-0" style={{
+              width: 36, height: 36,
+              background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+              boxShadow: "0 0 20px rgba(0,200,117,0.35)",
+            }}>
+              <BLogo size={18} />
+            </div>
+            <span className="text-[20px] font-bold" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
+              BuildMapper
+            </span>
           </div>
-          <span className="text-[20px] font-bold" style={{ color: "#F4F4F5", letterSpacing: "-0.02em" }}>
-            BuildMapper
-          </span>
+          {phase === "chat" && (
+            <button
+              onClick={() => signIn("google", { callbackUrl: "/scout" })}
+              className="text-[14px] transition-colors duration-150"
+              style={{ color: "#52525B" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#F4F4F5")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#52525B")}
+            >
+              Already have an account? Sign in →
+            </button>
+          )}
         </div>
 
         {/* ── CHAT ONBOARDING ── */}
@@ -563,16 +576,18 @@ export default function DesktopLanding() {
                   <GoogleIcon /> Continue with Google
                 </button>
                 <button
-                  onClick={() => signIn("microsoft-entra-id", { callbackUrl: "/scout" })}
-                  className="pressable w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#F4F4F5" }}
+                  disabled
+                  className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold cursor-not-allowed"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#3F3F46" }}
+                  title="Coming soon"
                 >
                   <MicrosoftIcon /> Continue with Microsoft
                 </button>
                 <button
-                  onClick={() => signIn("linkedin", { callbackUrl: "/scout" })}
-                  className="pressable w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#F4F4F5" }}
+                  disabled
+                  className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold cursor-not-allowed"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#3F3F46" }}
+                  title="Coming soon"
                 >
                   <LinkedInIcon /> Continue with LinkedIn
                 </button>

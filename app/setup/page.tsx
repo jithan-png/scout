@@ -336,6 +336,9 @@ function SetupPageInner() {
         {/* ── Step 1: What do you sell ── */}
         {setup.currentStep === "what_you_sell" && (
           <>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "#3F3F46" }}>
+              Scout is setting up your market scan
+            </p>
             <h2
               className="text-[28px] font-bold leading-tight mb-1"
               style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
@@ -343,7 +346,7 @@ function SetupPageInner() {
               What do you sell?
             </h2>
             <p className="text-[14px] mb-2" style={{ color: "#52525B" }}>
-              Scout scans permits and tenders that match what you build.
+              Scout will scan 40+ permit portals for projects that need exactly what you provide.
             </p>
 
             {/* Selected count */}
@@ -398,6 +401,9 @@ function SetupPageInner() {
         {/* ── Step 3: Project types ── */}
         {setup.currentStep === "project_types" && (
           <>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "#3F3F46" }}>
+              Almost there — Scout is nearly ready
+            </p>
             <h2
               className="text-[28px] font-bold leading-tight mb-1"
               style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
@@ -405,7 +411,7 @@ function SetupPageInner() {
               What type of projects?
             </h2>
             <p className="text-[14px] mb-2" style={{ color: "#52525B" }}>
-              Scout will prioritize opportunities that match your project mix.
+              Scout will filter out irrelevant results so every opportunity you see is worth chasing.
             </p>
 
             {setup.projectTypes.length > 0 && (
@@ -435,6 +441,9 @@ function SetupPageInner() {
         {/* ── Step 2: Where do you work ── */}
         {setup.currentStep === "where_you_operate" && (
           <>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "#3F3F46" }}>
+              Scout is setting up your market scan
+            </p>
             <h2
               className="text-[28px] font-bold leading-tight mb-1"
               style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
@@ -442,7 +451,7 @@ function SetupPageInner() {
               Where do you work?
             </h2>
             <p className="text-[14px] mb-5" style={{ color: "#52525B" }}>
-              Scout will watch these markets and alert you when the right projects appear.
+              Scout watches these markets daily and alerts you when new permits match your profile — before competitors find out.
             </p>
 
             {/* Tag input box */}

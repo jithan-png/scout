@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { ArrowUp } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import DesktopLanding from "@/components/ui/DesktopLanding";
+import SignInSheet from "@/components/ui/SignInSheet";
 
 function BLogo({ size = 14 }: { size?: number }) {
   return (
@@ -16,11 +17,39 @@ function BLogo({ size = 14 }: { size?: number }) {
   );
 }
 
+const FROM_LABELS: Record<string, { title: string; description: string }> = {
+  "/scout": {
+    title: "Sign in to talk to Scout",
+    description: "Scout chat remembers your market, tracks your pipeline, and briefs you daily on new permits and tenders.",
+  },
+  "/activity": {
+    title: "Sign in to see your alerts",
+    description: "Activity shows you when new permits match your profile, when deals need follow-up, and when warm paths open up.",
+  },
+  "/profile": {
+    title: "Sign in to manage your profile",
+    description: "Set your trades, location, and project types so Scout knows exactly what to find for you.",
+  },
+};
+
 export default function PublicLanding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toggleWhatISell, toggleWhereIOperate, toggleProjectType } = useAppStore();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetFrom, setSheetFrom] = useState("/scout");
+
+  useEffect(() => {
+    const from = searchParams.get("from");
+    if (from) {
+      setSheetFrom(from);
+      setSheetOpen(true);
+      // Clean the URL without triggering a navigation
+      window.history.replaceState({}, "", "/");
+    }
+  }, [searchParams]);
 
   const hasText = input.trim().length > 0;
 
@@ -111,7 +140,7 @@ export default function PublicLanding() {
       <div className="safe-top" />
 
       {/* Logo */}
-      <header className="relative z-10 px-6 pt-5 flex items-center flex-shrink-0 lg:hidden">
+      <header className="relative z-10 px-6 pt-5 flex items-center justify-between flex-shrink-0 lg:hidden">
         <div className="flex items-center gap-2.5">
           <div
             className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -126,6 +155,15 @@ export default function PublicLanding() {
             BuildMapper
           </span>
         </div>
+        <button
+          onClick={() => signIn("google", { callbackUrl: "/scout" })}
+          className="text-[13px] transition-colors duration-150"
+          style={{ color: "#52525B" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#F4F4F5")}
+          onMouseLeave={e => (e.currentTarget.style.color = "#52525B")}
+        >
+          Sign in →
+        </button>
       </header>
 
       {/* Mobile content — hidden on desktop */}
@@ -139,8 +177,11 @@ export default function PublicLanding() {
           <br />
           <span style={{ color: "#00C875" }}>your market.</span>
         </h1>
-        <p className="text-[15px] leading-relaxed mb-8" style={{ color: "#71717A" }}>
+        <p className="text-[15px] leading-relaxed mb-3" style={{ color: "#71717A" }}>
           It scans permits, tenders, LinkedIn, and the web — then maps your fastest path to winning each opportunity.
+        </p>
+        <p className="text-[12px] mb-8" style={{ color: "#3F3F46" }}>
+          40+ permit portals across BC, Alberta, and US cities · updated daily
         </p>
 
         {/* Feature pills */}
@@ -226,6 +267,15 @@ export default function PublicLanding() {
           </button>
         )}
       </div>
+
+      {/* Sign-in sheet — shown when redirected from a protected page */}
+      <SignInSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title={FROM_LABELS[sheetFrom]?.title ?? "Sign in to continue"}
+        description={FROM_LABELS[sheetFrom]?.description ?? "Create your account to access the full Scout experience."}
+        callbackUrl={sheetFrom}
+      />
     </div>
   );
 }

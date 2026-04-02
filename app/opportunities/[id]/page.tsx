@@ -30,6 +30,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
 import ScoreBreakdown from "@/components/opportunities/ScoreBreakdown";
 import FloatingChat from "@/components/ui/FloatingChat";
+import SignInSheet from "@/components/ui/SignInSheet";
 import type { RelationshipStrength, ScoutOpportunity, LeadSourceRecord } from "@/lib/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -199,6 +200,7 @@ export default function OpportunityDetailPage() {
   const [scoreExpanded, setScoreExpanded] = useState(false);
   const [emailDraftOpen, setEmailDraftOpen] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
+  const [signInSheetOpen, setSignInSheetOpen] = useState(false);
 
   const opp = opportunities.find((o) => o.id === params.id);
 
@@ -369,10 +371,45 @@ Best regards,`;
           </div>
         </div>
 
-        {/* ── Connection paths — always shown ─── */}
+        {/* ── Connection paths ─── */}
         <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <SectionLabel>Connection paths</SectionLabel>
-          {hasRelationship ? (
+          {!session ? (
+            /* Gate for unauthenticated users */
+            <div
+              className="rounded-2xl p-4 relative overflow-hidden"
+              style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.15)" }}
+            >
+              {/* Blurred teaser rows */}
+              <div className="flex flex-col gap-3 mb-4" style={{ filter: "blur(4px)", pointerEvents: "none", userSelect: "none" }}>
+                {[0,1,2].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)" }} />
+                    <div className="flex flex-col gap-1 flex-1">
+                      <div className="h-3 rounded-full w-32" style={{ background: "rgba(255,255,255,0.08)" }} />
+                      <div className="h-2.5 rounded-full w-24" style={{ background: "rgba(255,255,255,0.05)" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Overlay CTA */}
+              <div className="text-center">
+                <p className="text-[13px] font-semibold mb-1" style={{ color: "#F4F4F5" }}>
+                  Scout found a connection to {opp.company.name}
+                </p>
+                <p className="text-[12px] mb-3" style={{ color: "#71717A" }}>
+                  Sign in to see who you know and how to get introduced.
+                </p>
+                <button
+                  onClick={() => setSignInSheetOpen(true)}
+                  className="pressable px-4 py-2.5 rounded-xl text-[13px] font-semibold"
+                  style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", color: "#FCD34D" }}
+                >
+                  Reveal connection →
+                </button>
+              </div>
+            </div>
+          ) : hasRelationship ? (
             <div className="rounded-2xl p-4" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)" }}>
@@ -448,6 +485,7 @@ Best regards,`;
               </div>
             </div>
           )}
+          {/* End of session-gated connection paths */}
         </div>
 
         {/* ── Location ─── */}
@@ -513,6 +551,30 @@ Best regards,`;
         {/* ── Quick actions ─── */}
         <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <SectionLabel>Actions</SectionLabel>
+
+          {!session ? (
+            /* Gate outreach actions for unauthenticated users */
+            <div
+              className="rounded-2xl p-4"
+              style={{ background: "rgba(0,200,117,0.05)", border: "1px solid rgba(0,200,117,0.15)" }}
+            >
+              <p className="text-[13px] font-semibold mb-1" style={{ color: "#F4F4F5" }}>
+                Sign in to draft outreach
+              </p>
+              <p className="text-[12px] mb-3" style={{ color: "#71717A" }}>
+                Scout will generate a personalised intro email and pull the right contact from this project.
+              </p>
+              <button
+                onClick={() => setSignInSheetOpen(true)}
+                className="pressable flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold"
+                style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 14px rgba(0,200,117,0.2)" }}
+              >
+                <Mail size={13} strokeWidth={2.5} />
+                Draft email with Scout
+              </button>
+            </div>
+          ) : (
+            <>
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             <button
               onClick={() => setEmailDraftOpen(!emailDraftOpen)}
@@ -602,6 +664,8 @@ Best regards,`;
                 </button>
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
 
@@ -695,36 +759,29 @@ Best regards,`;
       {/* Soft auth bar — shown to unauthenticated users */}
       {!session && (
         <div
-          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 z-50"
+          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 z-40"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 12px)", paddingTop: 12, background: "rgba(9,9,11,0.95)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
           <p className="text-[12px] text-center mb-2" style={{ color: "#52525B" }}>
-            Sign in to draft outreach, save this lead, and chat with Scout
+            Sign in to draft outreach, see your connection, and get daily alerts
           </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => signIn("google", { callbackUrl: `/opportunities/${params.id}` })}
-              className="pressable flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[14px] font-semibold"
-              style={{ background: "#fff", color: "#111" }}
-            >
-              <svg width="15" height="15" viewBox="0 0 18 18" fill="none">
-                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
-                <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
-                <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z" fill="#FBBC05"/>
-                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
-              </svg>
-              Continue with Google
-            </button>
-            <button
-              onClick={() => router.back()}
-              className="pressable px-4 py-3 rounded-xl text-[13px] font-medium"
-              style={{ background: "rgba(255,255,255,0.05)", color: "#52525B" }}
-            >
-              Later
-            </button>
-          </div>
+          <button
+            onClick={() => setSignInSheetOpen(true)}
+            className="pressable w-full flex items-center justify-center py-3 rounded-xl text-[14px] font-semibold"
+            style={{ background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)", color: "#fff", boxShadow: "0 0 20px rgba(0,200,117,0.2)" }}
+          >
+            Save this lead with Google
+          </button>
         </div>
       )}
+
+      <SignInSheet
+        open={signInSheetOpen}
+        onClose={() => setSignInSheetOpen(false)}
+        title="Sign in to unlock this lead"
+        description="See your connection path, draft a personalised email, and get alerted when new matching permits are filed."
+        callbackUrl={`/opportunities/${params.id}`}
+      />
     </div>
   );
 }

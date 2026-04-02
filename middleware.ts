@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 
 export default auth((req) => {
   if (!req.auth) {
-    return NextResponse.redirect(new URL("/", req.url));
+    const from = req.nextUrl.pathname;
+    return NextResponse.redirect(new URL(`/?from=${encodeURIComponent(from)}`, req.url));
   }
 });
 

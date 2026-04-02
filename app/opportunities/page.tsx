@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SlidersHorizontal, X } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
+import SignInSheet from "@/components/ui/SignInSheet";
 import OpportunityCard from "@/components/opportunities/OpportunityCard";
 import BottomNav from "@/components/ui/BottomNav";
 import FloatingChat from "@/components/ui/FloatingChat";
@@ -92,11 +94,14 @@ function matchesIntent(opp: Opportunity, intent: string): boolean {
 
 export default function OpportunitiesPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { opportunities, isLoadingOpportunities, savedOpportunityIds, selectOpportunity, activeIntent, coverageNote, setup } =
     useAppStore();
   const [filter, setFilter] = useState<OpportunityPriority | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [signInSheetOpen, setSignInSheetOpen] = useState(false);
 
   // When an intent search was run, pre-filter by relevance
   const intentFiltered = activeIntent
@@ -167,6 +172,38 @@ export default function OpportunitiesPage() {
             )}
           </button>
         </div>
+
+        {/* Nudge banner for unauthenticated users */}
+        {!session && !nudgeDismissed && !isLoadingOpportunities && opportunities.length > 0 && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-4 animate-fade-up"
+            style={{ background: "rgba(0,200,117,0.07)", border: "1px solid rgba(0,200,117,0.18)" }}
+          >
+            <div className="flex-1">
+              <p className="text-[13px] font-semibold leading-tight" style={{ color: "#F4F4F5" }}>
+                Get alerted when new matches appear
+              </p>
+              <p className="text-[11px] mt-0.5" style={{ color: "#52525B" }}>
+                Scout scans daily and notifies you before your competitors find out.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setSignInSheetOpen(true)}
+                className="pressable px-3 py-1.5 rounded-xl text-[12px] font-semibold"
+                style={{ background: "rgba(0,200,117,0.15)", border: "1px solid rgba(0,200,117,0.3)", color: "#34D399" }}
+              >
+                Sign in
+              </button>
+              <button
+                onClick={() => setNudgeDismissed(true)}
+                className="pressable"
+              >
+                <X size={14} strokeWidth={2} style={{ color: "#3F3F46" }} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Priority filter pills — only row always visible */}
         <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
@@ -341,6 +378,14 @@ export default function OpportunitiesPage() {
       <div className="pb-nav" />
       <BottomNav />
       <FloatingChat />
+
+      <SignInSheet
+        open={signInSheetOpen}
+        onClose={() => setSignInSheetOpen(false)}
+        title="Get alerted when new matches appear"
+        description="Scout scans 40+ permit portals daily and notifies you before your competitors find out."
+        callbackUrl="/scout"
+      />
     </div>
   );
 }
