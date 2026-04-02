@@ -170,12 +170,12 @@ function SourceEvidenceCard({ record }: { record: LeadSourceRecord }) {
             {record.poster_name?.charAt(0) ?? "?"}
           </div>
           <span className="text-[12px] font-semibold" style={{ color: "#F4F4F5" }}>{record.poster_name ?? "Unknown poster"}</span>
-          {record.poster_company && <span className="text-[12px]" style={{ color: "#71717A" }}>at {record.poster_company}</span>}
+          {record.poster_company && <span className="text-[12px]" style={{ color: "#A1A1AA" }}>at {record.poster_company}</span>}
         </div>
       )}
       {record.title && <p className="text-[13px] font-semibold mb-1" style={{ color: "#F4F4F5" }}>{record.title}</p>}
       {record.excerpt && (
-        <p className="text-[12px] leading-relaxed mb-2" style={{ color: "#71717A" }}>
+        <p className="text-[12px] leading-relaxed mb-2" style={{ color: "#A1A1AA" }}>
           {record.excerpt.slice(0, 200)}{record.excerpt.length > 200 ? "…" : ""}
         </p>
       )}
@@ -185,6 +185,34 @@ function SourceEvidenceCard({ record }: { record: LeadSourceRecord }) {
           {record.source_type === "linkedin" ? "View post" : record.source_type === "procurement" ? "View tender" : "View source"}
         </button>
       )}
+    </div>
+  );
+}
+
+// ── Street View image with error handling ────────────────────────────────────
+
+function StreetViewImage({ src, className = "" }: { src: string; className?: string }) {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  return (
+    <div className={`relative rounded-2xl overflow-hidden ${className}`} style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="Street view of project location"
+        onError={() => setHidden(true)}
+        style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }}
+      />
+      {/* Label scrim */}
+      <div
+        className="absolute bottom-0 left-0 right-0 px-3 py-2 flex items-center gap-1.5"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+          <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <span className="text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>Street view</span>
+      </div>
     </div>
   );
 }
@@ -320,7 +348,7 @@ Best regards,`;
             <p className="text-[13px] font-semibold mb-2" style={{ color: "#F4F4F5" }}>
               {opp.suggestedAction}
             </p>
-            <p className="text-[12px] mb-3" style={{ color: "#71717A" }}>
+            <p className="text-[12px] mb-3" style={{ color: "#A1A1AA" }}>
               {scoreNarrative}
             </p>
             <div className="flex gap-2">
@@ -397,7 +425,7 @@ Best regards,`;
                 <p className="text-[13px] font-semibold mb-1" style={{ color: "#F4F4F5" }}>
                   Scout found a connection to {opp.company.name}
                 </p>
-                <p className="text-[12px] mb-3" style={{ color: "#71717A" }}>
+                <p className="text-[12px] mb-3" style={{ color: "#A1A1AA" }}>
                   Sign in to see who you know and how to get introduced.
                 </p>
                 <button
@@ -445,7 +473,7 @@ Best regards,`;
                     </div>
                     <div className="flex-1 pb-3">
                       <p className="text-[14px] font-semibold leading-tight" style={{ color: "#F4F4F5" }}>{step.label}</p>
-                      {step.detail && <p className="text-[12px] mt-0.5" style={{ color: "#71717A" }}>{step.detail}</p>}
+                      {step.detail && <p className="text-[12px] mt-0.5" style={{ color: "#A1A1AA" }}>{step.detail}</p>}
                       {step.strength && step.strength !== "none" && <div className="mt-1.5"><StrengthPill strength={step.strength} /></div>}
                     </div>
                   </div>
@@ -456,7 +484,7 @@ Best regards,`;
             /* No direct connection state */
             <div className="rounded-2xl p-4" style={{ background: "#1C1C22", border: "1px solid rgba(255,255,255,0.07)" }}>
               <p className="text-[13px] font-semibold mb-1" style={{ color: "#A1A1AA" }}>No direct connection found yet</p>
-              <p className="text-[12px] mb-4" style={{ color: "#52525B" }}>Scout hasn't mapped a warm path to this project. You can search for one manually.</p>
+              <p className="text-[12px] mb-4" style={{ color: "#A1A1AA" }}>Scout hasn't mapped a warm path to this project. You can search for one manually.</p>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => window.open(`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(opp.company.name)}`, "_blank")}
@@ -489,34 +517,85 @@ Best regards,`;
         </div>
 
         {/* ── Location ─── */}
-        {hasAddress && (
-          <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-            <div className="flex items-center gap-2">
-              <MapPin size={12} style={{ color: "#3F3F46" }} />
-              <span className="text-[13px]" style={{ color: "#71717A" }}>
-                {[opp.project.address, opp.project.city].filter(Boolean).join(", ")}
-              </span>
+        {hasAddress && (() => {
+          const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+          const addressParts = [opp.project.address, opp.project.city].filter(Boolean);
+          const fullAddress = addressParts.join(", ");
+          const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`;
+          const staticMapUrl = mapsKey
+            ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(fullAddress)}&zoom=15&size=800x300&scale=2&markers=color:0x00C875%7C${encodeURIComponent(fullAddress)}&style=feature:all%7Celement:geometry%7Ccolor:0x1a1a1a&style=feature:road%7Celement:geometry%7Ccolor:0x2a2a2a&style=feature:road%7Celement:labels.text.fill%7Ccolor:0x666666&style=feature:water%7Celement:geometry%7Ccolor:0x0d0d0d&style=feature:landscape%7Celement:geometry%7Ccolor:0x141414&style=feature:poi%7Cvisibility:off&style=feature:transit%7Cvisibility:off&key=${mapsKey}`
+            : null;
+          const streetViewUrl = mapsKey && opp.project.address
+            ? `https://maps.googleapis.com/maps/api/streetview?size=800x360&location=${encodeURIComponent(fullAddress)}&source=outdoor&key=${mapsKey}`
+            : null;
+
+          return (
+            <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+              <SectionLabel>Location</SectionLabel>
+
+              {/* Street View photo */}
+              {streetViewUrl && (
+                <StreetViewImage src={streetViewUrl} className="mb-3" />
+              )}
+
+              {/* Static map — tappable */}
+              {staticMapUrl && (
+                <a href={mapsUrl} target="_blank" rel="noreferrer" className="block mb-3 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={staticMapUrl}
+                    alt={`Map of ${fullAddress}`}
+                    style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
+                  />
+                </a>
+              )}
+
+              {/* Address row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin size={13} style={{ color: "#52525B" }} />
+                  <span className="text-[13px] font-medium" style={{ color: "#A1A1AA" }}>
+                    {fullAddress}
+                  </span>
+                </div>
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[12px] font-semibold flex-shrink-0 ml-3"
+                  style={{ color: "#00C875" }}
+                >
+                  Open in Maps →
+                </a>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Value + timeline ─── */}
         {(hasValue || hasTimeline) && (
-          <div className="px-5 py-4 flex gap-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <div className="px-5 py-4 flex gap-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             {hasValue && (
-              <div className="flex items-center gap-2">
-                <DollarSign size={12} style={{ color: "#3F3F46" }} />
-                <span className="text-[13px] font-semibold" style={{ color: "#71717A" }}>
-                  {formatValue(displayValue)}
-                </span>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "#3F3F46" }}>Estimated Value</p>
+                <div className="flex items-center gap-1.5">
+                  <DollarSign size={13} style={{ color: "#52525B" }} />
+                  <span className="text-[15px] font-bold" style={{ color: "#F4F4F5" }}>
+                    {formatValue(displayValue)}
+                  </span>
+                </div>
               </div>
             )}
             {hasTimeline && (
-              <div className="flex items-center gap-2">
-                <Calendar size={12} style={{ color: "#3F3F46" }} />
-                <span className="text-[13px]" style={{ color: "#71717A" }}>
-                  {formatDate(scout.earliestSignalDate ?? opp.project.issuedDate)} · {opp.timing}
-                </span>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "#3F3F46" }}>Filed</p>
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={13} style={{ color: "#52525B" }} />
+                  <span className="text-[14px] font-semibold" style={{ color: "#A1A1AA" }}>
+                    {formatDate(scout.earliestSignalDate ?? opp.project.issuedDate)}
+                  </span>
+                </div>
+                <p className="text-[11px] mt-0.5" style={{ color: "#52525B" }}>{opp.timing}</p>
               </div>
             )}
           </div>
@@ -526,25 +605,29 @@ Best regards,`;
         {hasProjectDetails && (
           <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             <SectionLabel>Project details</SectionLabel>
-            {hasDescription && (
-              <p className="text-[13px] leading-relaxed mb-3" style={{ color: "#71717A" }}>{opp.project.description}</p>
-            )}
-            {(scout.unitCount || scout.storeyCount) && (
-              <div className="flex gap-4">
-                {scout.unitCount && (
-                  <div className="px-3 py-2 rounded-xl text-center" style={{ background: "#1C1C22", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <p className="text-[16px] font-bold" style={{ color: "#F4F4F5" }}>{scout.unitCount}</p>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: "#52525B" }}>units</p>
-                  </div>
-                )}
-                {scout.storeyCount && (
-                  <div className="px-3 py-2 rounded-xl text-center" style={{ background: "#1C1C22", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <p className="text-[16px] font-bold" style={{ color: "#F4F4F5" }}>{scout.storeyCount}</p>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: "#52525B" }}>storeys</p>
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="rounded-2xl p-4" style={{ background: "#141418", border: "1px solid rgba(255,255,255,0.07)" }}>
+              {hasDescription && (
+                <p className="text-[14px] leading-relaxed" style={{ color: "#A1A1AA", marginBottom: (scout.unitCount || scout.storeyCount) ? 16 : 0 }}>
+                  {opp.project.description}
+                </p>
+              )}
+              {(scout.unitCount || scout.storeyCount) && (
+                <div className="flex gap-3">
+                  {scout.unitCount && (
+                    <div className="px-4 py-3 rounded-xl text-center flex-1" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <p className="text-[22px] font-bold" style={{ color: "#F4F4F5" }}>{scout.unitCount}</p>
+                      <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: "#52525B" }}>units</p>
+                    </div>
+                  )}
+                  {scout.storeyCount && (
+                    <div className="px-4 py-3 rounded-xl text-center flex-1" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <p className="text-[22px] font-bold" style={{ color: "#F4F4F5" }}>{scout.storeyCount}</p>
+                      <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: "#52525B" }}>storeys</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -561,7 +644,7 @@ Best regards,`;
               <p className="text-[13px] font-semibold mb-1" style={{ color: "#F4F4F5" }}>
                 Sign in to draft outreach
               </p>
-              <p className="text-[12px] mb-3" style={{ color: "#71717A" }}>
+              <p className="text-[12px] mb-3" style={{ color: "#A1A1AA" }}>
                 Scout will generate a personalised intro email and pull the right contact from this project.
               </p>
               <button
@@ -692,7 +775,7 @@ Best regards,`;
                   <div className="flex-shrink-0 mt-0.5">{icon}</div>
                   <div>
                     <p className="text-[13px] font-semibold" style={{ color: "#F4F4F5" }}>{reason.label}</p>
-                    <p className="text-[12px] mt-0.5" style={{ color: "#71717A" }}>{reason.detail}</p>
+                    <p className="text-[12px] mt-0.5" style={{ color: "#A1A1AA" }}>{reason.detail}</p>
                   </div>
                 </div>
               );
@@ -712,7 +795,7 @@ Best regards,`;
                   </div>
                   <div className="flex-1">
                     <p className="text-[14px] font-semibold" style={{ color: "#F4F4F5" }}>{co.name}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: "#52525B" }}>{co.roles.join(", ")}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "#A1A1AA" }}>{co.roles.join(", ")}</p>
                   </div>
                   {co.phone && (
                     <button onClick={() => window.open(`tel:${co.phone}`, "_self")} className="pressable">
