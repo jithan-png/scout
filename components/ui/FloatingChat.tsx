@@ -102,24 +102,70 @@ export default function FloatingChat({ context = "", triggerQuery }: FloatingCha
     if (inputRef.current) inputRef.current.style.height = "auto";
     setIsTyping(true);
 
+    // Add empty assistant bubble immediately so it streams in
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
     try {
-      const res = await fetch("/api/chat/message", {
+      const res = await fetch("/api/chat/scout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
           context,
           history: messages.slice(-6),
+          userProfile: {},
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-      } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Try again." }]);
+
+      if (!res.ok || !res.body) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: "assistant", content: "Something went wrong. Try again." };
+          return updated;
+        });
+        setIsTyping(false);
+        return;
       }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        accumulated += chunk;
+        // Strip panel/block/action markers — FloatingChat only shows text
+        const display = accumulated
+          .replace(/__PANEL__\w+__\{[\s\S]*?\}__?/g, "")
+          .replace(/__BLOCK__\{[\s\S]*?\}/g, "")
+          .replace(/__ACTION:\w+__/g, "")
+          .trim();
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: "assistant", content: display };
+          return updated;
+        });
+      }
+
+      // Final clean pass after stream closes
+      const finalDisplay = accumulated
+        .replace(/__PANEL__\w+__\{[\s\S]*?\}__?/g, "")
+        .replace(/__BLOCK__\{[\s\S]*?\}/g, "")
+        .replace(/__ACTION:\w+__/g, "")
+        .trim();
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: finalDisplay || "Scout couldn't respond. Try again." };
+        return updated;
+      });
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Scout is offline right now." }]);
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: "Scout is offline right now." };
+        return updated;
+      });
     }
 
     setIsTyping(false);
@@ -288,7 +334,7 @@ export default function FloatingChat({ context = "", triggerQuery }: FloatingCha
             </div>
           ))}
 
-          {isTyping && (
+          {isTyping && messages[messages.length - 1]?.content === "" && (
             <div className="flex justify-start">
               <div
                 className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mr-2 mt-0.5"

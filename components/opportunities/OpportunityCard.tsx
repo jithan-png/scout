@@ -175,8 +175,10 @@ interface OpportunityCardProps {
   opportunity: Opportunity | ScoutOpportunity;
   isSaved?: boolean;
   isLiked?: boolean;
+  isDismissed?: boolean;
   onClick: () => void;
   onDismiss?: () => void;
+  onRestore?: () => void;
   selectionMode?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
@@ -187,8 +189,10 @@ export default function OpportunityCard({
   opportunity,
   isSaved,
   isLiked,
+  isDismissed,
   onClick,
   onDismiss,
+  onRestore,
   selectionMode,
   isSelected,
   onSelect,
@@ -221,7 +225,7 @@ export default function OpportunityCard({
     <button
       onClick={selectionMode ? onSelect : onClick}
       className="w-full text-left pressable"
-      style={{ animationDelay: `${index * 80}ms` }}
+      style={{ animationDelay: `${index * 80}ms`, opacity: isDismissed ? 0.55 : 1 }}
     >
       <div
         className="rounded-2xl p-4 transition-all duration-200 relative overflow-hidden"
@@ -254,8 +258,18 @@ export default function OpportunityCard({
           </div>
         )}
 
-        {/* Dismiss X button */}
-        {!selectionMode && onDismiss && (
+        {/* Dismiss X button — or Restore button when dismissed */}
+        {!selectionMode && isDismissed && onRestore && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRestore(); }}
+            className="pressable absolute top-3 right-3 z-10 px-2 py-1 rounded-lg text-[11px] font-semibold"
+            style={{ background: "rgba(0,200,117,0.1)", color: "#34D399", border: "1px solid rgba(0,200,117,0.2)" }}
+            aria-label="Restore opportunity"
+          >
+            Restore
+          </button>
+        )}
+        {!selectionMode && !isDismissed && onDismiss && (
           <button
             onClick={(e) => { e.stopPropagation(); onDismiss(); }}
             className="pressable absolute top-3 right-3 z-10 w-6 h-6 rounded-lg flex items-center justify-center transition-colors"

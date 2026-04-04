@@ -21,7 +21,15 @@ const PANEL_TITLES: Record<string, string> = {
 export default function ScoutPanel({ data, onClose, onScoutMessage }: ScoutPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [detailOpp, setDetailOpp] = useState<ScoutOpportunity | null>(null);
+  const [pipelineToast, setPipelineToast] = useState<string | null>(null);
+  const pipelineToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const showPipelineToast = (label: string) => {
+    setPipelineToast(label);
+    if (pipelineToastTimer.current) clearTimeout(pipelineToastTimer.current);
+    pipelineToastTimer.current = setTimeout(() => setPipelineToast(null), 2500);
+  };
 
   const isOpen = !!data;
   const inDetail = !!detailOpp;
@@ -105,6 +113,25 @@ export default function ScoutPanel({ data, onClose, onScoutMessage }: ScoutPanel
           </button>
         </div>
 
+        {/* Pipeline toast */}
+        {pipelineToast && (
+          <div
+            className="absolute bottom-4 left-4 right-4 z-10 flex items-center gap-2 px-4 py-3 rounded-2xl animate-fade-up"
+            style={{
+              background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+              boxShadow: "0 4px 20px rgba(0,200,117,0.35)",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 2h5a2.5 2.5 0 0 1 0 5H3V2Z" fill="white" fillOpacity="0.95" />
+              <path d="M3 7h5.5a2.5 2.5 0 0 1 0 5H3V7Z" fill="white" fillOpacity="0.7" />
+            </svg>
+            <p className="text-[13px] font-semibold flex-1" style={{ color: "#fff" }}>
+              {pipelineToast} added to pipeline
+            </p>
+          </div>
+        )}
+
         {/* Sliding viewport — keeps both views in DOM for scroll preservation */}
         <div className="flex-1 relative overflow-hidden">
           <div
@@ -130,6 +157,7 @@ export default function ScoutPanel({ data, onClose, onScoutMessage }: ScoutPanel
                   permits={data.data.permits}
                   onScoutMessage={onScoutMessage}
                   onOpenDetail={(opp) => setDetailOpp(opp)}
+                  onLeadAdded={(label) => showPipelineToast(label)}
                 />
               )}
               {data?.type === "dashboard" && (

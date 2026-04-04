@@ -340,6 +340,12 @@ Best regards,`;
             <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: priorityColor }}>{opp.priority}</span>
             <span style={{ color: "#3F3F46" }}>·</span>
             <span className="text-[12px]" style={{ color: "#52525B" }}>{opp.project.type}</span>
+            {scout.primarySource === "permit" && (
+              <>
+                <span style={{ color: "#3F3F46" }}>·</span>
+                <span className="text-[10px] font-semibold" style={{ color: "#60A5FA" }}>Permit</span>
+              </>
+            )}
             {isContacted && (
               <>
                 <span style={{ color: "#3F3F46" }}>·</span>
@@ -399,7 +405,8 @@ Best regards,`;
           </div>
         </div>
 
-        {/* ── Connection paths ─── */}
+        {/* ── Connection paths — hide blurred auth gate in compact/panel mode ─── */}
+        {(!compact || session) && (
         <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <SectionLabel>Connection paths</SectionLabel>
           {!session ? (
@@ -481,6 +488,7 @@ Best regards,`;
             </div>
           )}
         </div>
+        )}
 
         {/* ── Value + timeline ─── */}
         {(hasValue || hasTimeline) && (
@@ -662,6 +670,7 @@ Best regards,`;
         </div>
 
         {/* ── Why Scout flagged this ─── */}
+        {opp.matchReasons.length > 0 && (
         <div className="px-5 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <SectionLabel>Why Scout flagged this</SectionLabel>
           <div className="flex flex-col gap-2">
@@ -685,6 +694,7 @@ Best regards,`;
             })}
           </div>
         </div>
+        )}
 
         {/* ── Source evidence ─── */}
         <div className="px-5 py-5">

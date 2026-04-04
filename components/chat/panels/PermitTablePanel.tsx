@@ -42,10 +42,11 @@ interface PermitCardProps {
   index: number;
   onScoutMessage?: (msg: string) => void;
   onOpenDetail?: (opp: ScoutOpportunity) => void;
+  onLeadAdded?: (label: string) => void;
 }
 
-function PermitCard({ permit, index, onScoutMessage, onOpenDetail }: PermitCardProps) {
-  const { addOrUpdateOpportunity, contactedOpportunityIds } = useAppStore();
+function PermitCard({ permit, index, onScoutMessage, onOpenDetail, onLeadAdded }: PermitCardProps) {
+  const { addOrUpdateOpportunity, contactedOpportunityIds, opportunities } = useAppStore();
 
   const p = statusPriority(permit.status);
   const hasContact = !!(permit.builder_phone || permit.builder_email);
@@ -54,7 +55,11 @@ function PermitCard({ permit, index, onScoutMessage, onOpenDetail }: PermitCardP
 
   const handleClick = () => {
     const opp = permitToOpportunity(permit);
+    const isNew = !opportunities.find((o) => o.id === opp.id);
     addOrUpdateOpportunity(opp);
+    if (isNew && onLeadAdded) {
+      onLeadAdded(opp.company.name);
+    }
     if (onOpenDetail) {
       onOpenDetail(opp);
     }
@@ -245,9 +250,10 @@ interface PermitTablePanelProps {
   permits?: PermitEntry[];
   onScoutMessage?: (msg: string) => void;
   onOpenDetail?: (opp: ScoutOpportunity) => void;
+  onLeadAdded?: (label: string) => void;
 }
 
-export default function PermitTablePanel({ query, permits: initialPermits, onScoutMessage, onOpenDetail }: PermitTablePanelProps) {
+export default function PermitTablePanel({ query, permits: initialPermits, onScoutMessage, onOpenDetail, onLeadAdded }: PermitTablePanelProps) {
   const [permits, setPermits] = useState<PermitEntry[]>(initialPermits ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -344,6 +350,7 @@ export default function PermitTablePanel({ query, permits: initialPermits, onSco
             index={i}
             onScoutMessage={onScoutMessage}
             onOpenDetail={onOpenDetail}
+            onLeadAdded={onLeadAdded}
           />
         ))}
       </div>

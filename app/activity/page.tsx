@@ -33,6 +33,17 @@ function isItemActive(item: ActivityItem): boolean {
   return true;
 }
 
+function isItemUpcoming(item: ActivityItem): boolean {
+  return item.status === "pending" && !!item.dueAt && new Date(item.dueAt) > new Date();
+}
+
+function formatDueDate(dueAt: string): string {
+  const days = Math.round((new Date(dueAt).getTime() - Date.now()) / 86400000);
+  if (days <= 0) return "Due today";
+  if (days === 1) return "Due tomorrow";
+  return `Due in ${days} days`;
+}
+
 // ── Priority config ───────────────────────────────────────────────────────────
 
 const PRIORITY_CONFIG = {
@@ -394,12 +405,14 @@ function EmptyState() {
 export default function ActivityPage() {
   const { activityItems } = useAppStore();
   const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
   const [reviewOppId, setReviewOppId] = useState<string | null>(null);
   const [floatingQuery, setFloatingQuery] = useState<string | null>(null);
 
   const activeItems = activityItems.filter(isItemActive);
   const needsActionItems = activeItems.filter((i) => i.priority === "high");
   const updateItems = activeItems.filter((i) => i.priority !== "high");
+  const upcomingItems = activityItems.filter(isItemUpcoming);
   const completedItems = activityItems.filter(
     (i) => i.status === "done" || i.status === "dismissed"
   );
@@ -471,9 +484,48 @@ export default function ActivityPage() {
         )}
 
         {/* ── Empty state ─── */}
-        {activeItems.length === 0 && <EmptyState />}
+        {activeItems.length === 0 && upcomingItems.length === 0 && <EmptyState />}
 
-        {/* ── Zone 3: Completed ─── */}
+        {/* ── Zone 3: Upcoming ─── */}
+        {upcomingItems.length > 0 && (
+          <section className="mb-6">
+            <button
+              onClick={() => setUpcomingExpanded(!upcomingExpanded)}
+              className="pressable flex items-center gap-2 w-full mb-3 py-1"
+            >
+              <p className="text-[10px] font-bold tracking-widest uppercase" style={{ color: "#3F3F46" }}>
+                Upcoming · {upcomingItems.length}
+              </p>
+              {upcomingExpanded
+                ? <ChevronUp size={12} strokeWidth={2.5} style={{ color: "#3F3F46" }} />
+                : <ChevronDown size={12} strokeWidth={2.5} style={{ color: "#3F3F46" }} />
+              }
+            </button>
+            {upcomingExpanded && (
+              <div className="flex flex-col gap-2">
+                {upcomingItems.map((item) => (
+                  <div key={item.id} className="px-4 py-3 rounded-2xl" style={{ background: "#141418", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold leading-snug truncate" style={{ color: "#A1A1AA" }}>{item.title}</p>
+                        <p className="text-[12px] mt-0.5 line-clamp-1" style={{ color: "#52525B" }}>{item.body}</p>
+                      </div>
+                      <span
+                        className="flex-shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full"
+                        style={{ background: "rgba(245,158,11,0.08)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.15)" }}
+                      >
+                        <Clock size={10} strokeWidth={2.5} className="inline mr-1" />
+                        {formatDueDate(item.dueAt!)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Zone 4: Completed ─── */}
         {completedItems.length > 0 && (
           <section className="mb-4">
             <button

@@ -118,6 +118,9 @@ export default function OpportunitiesPage() {
   const [undoTarget, setUndoTarget] = useState<{ id: string; label: string } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Show dismissed leads
+  const [showDismissed, setShowDismissed] = useState(false);
+
   // Bulk selection mode
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -290,12 +293,12 @@ export default function OpportunitiesPage() {
         {/* Priority filter pills */}
         <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {FILTERS.map(({ label, value }) => {
-            const isActive = filter === value;
+            const isActive = !showDismissed && filter === value;
             const count = value === "all" ? sourceFiltered.length : counts[value];
             return (
               <button
                 key={value}
-                onClick={() => setFilter(value)}
+                onClick={() => { setFilter(value); setShowDismissed(false); }}
                 className="pressable flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200"
                 style={
                   isActive
@@ -310,6 +313,23 @@ export default function OpportunitiesPage() {
               </button>
             );
           })}
+          {/* Dismissed pill — only show if there are dismissed leads */}
+          {dismissedOpportunityIds.size > 0 && (
+            <button
+              onClick={() => setShowDismissed((v) => !v)}
+              className="pressable flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200"
+              style={
+                showDismissed
+                  ? { background: "rgba(239,68,68,0.12)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }
+                  : { background: "rgba(255,255,255,0.05)", color: "#52525B", border: "1px solid rgba(255,255,255,0.08)" }
+              }
+            >
+              Dismissed
+              <span className="text-[11px] font-bold" style={{ opacity: 0.7 }}>
+                {dismissedOpportunityIds.size}
+              </span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -391,7 +411,19 @@ export default function OpportunitiesPage() {
             </>
           ) : (
             <>
-              {filtered.map((opp, i) => (
+              {showDismissed
+                ? baseList.filter((o) => dismissedOpportunityIds.has(o.id)).map((opp, i) => (
+                    <div key={opp.id} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                      <OpportunityCard
+                        opportunity={opp}
+                        isDismissed
+                        onRestore={() => undoDismissOpportunity(opp.id)}
+                        onClick={() => {}} // no navigation when viewing dismissed
+                        index={i}
+                      />
+                    </div>
+                  ))
+                : filtered.map((opp, i) => (
                 <div key={opp.id} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
                   <OpportunityCard
                     opportunity={opp}
@@ -428,7 +460,7 @@ export default function OpportunitiesPage() {
                     Tell Scout what you sell and where you work
                   </p>
                   <button
-                    onClick={() => router.push("/")}
+                    onClick={() => router.push("/scout")}
                     className="pressable px-6 py-3 rounded-2xl text-[14px] font-semibold"
                     style={{
                       background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
