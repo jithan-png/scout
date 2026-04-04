@@ -172,3 +172,57 @@ export interface DataConnection {
   connectedAt?: string;
   dataPoints?: string; // "847 contacts", "2 years of email"
 }
+
+// ── Scout panel types ──────────────────────────────────────────────────────────
+
+export interface LikeSignals {
+  projectTypes: string[];
+  cities: string[];
+}
+
+export interface PermitEntry {
+  id?: string;
+  address: string;
+  city?: string;
+  project_type?: string;
+  value?: number;
+  builder_company?: string;
+  builder_name?: string;
+  builder_phone?: string;
+  builder_email?: string;
+  issued_date?: string;
+  status?: string;
+  description?: string;
+}
+
+export interface ScoutPanelData {
+  type: "permit" | "dashboard";
+  title?: string;
+  data: {
+    // permit panel
+    query?: string;
+    permits?: PermitEntry[];
+    // dashboard panel
+    view_type?: "score_bars" | "permit_summary" | "pipeline_funnel" | "company_brief";
+    bars?: Array<{ label: string; value: number; max: number }>;
+    stats?: Array<{ label: string; value: string | number; color?: string }>;
+    stages?: Array<{ label: string; count: number }>;
+    company?: { name: string; website?: string; description?: string; contacts?: Array<{ name: string; role?: string; phone?: string; email?: string }> };
+  };
+}
+
+// ── Conversation session types ─────────────────────────────────────────────────
+
+export interface ConversationSession {
+  id: string;
+  title: string;   // first user message, truncated to 40 chars
+  date: string;    // ISO date string (creation)
+  // Inline shape of ChatMessage to avoid circular import with store.ts
+  messages: Array<{
+    role: "user" | "assistant";
+    content: string;
+    blocks?: unknown[];
+    chips?: string[];
+    panelData?: ScoutPanelData;
+  }>;
+}

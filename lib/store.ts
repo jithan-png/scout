@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Opportunity, Alert, AgentUpdate, DataConnection, SearchIntent, User, ScoutOpportunity } from "./types";
+import type { Opportunity, Alert, AgentUpdate, DataConnection, SearchIntent, User, ScoutOpportunity, ScoutPanelData, ConversationSession, LikeSignals } from "./types";
 import {
   MOCK_OPPORTUNITIES,
   MOCK_ALERTS,
@@ -42,6 +42,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   blocks?: ChatBlock[];
+  chips?: string[];          // suggestion chips shown below briefing messages
+  panelData?: ScoutPanelData; // data for the side panel
 }
 
 interface AppStore {
@@ -110,9 +112,35 @@ interface AppStore {
   addChatMessage: (msg: ChatMessage) => void;
   clearChat: () => void;
 
+  // Conversation sessions (history)
+  sessions: ConversationSession[];
+  activeSessionId: string | null;
+  startNewSession: () => void;
+  loadSession: (id: string) => void;
+  saveCurrentSession: () => void;
+
   // Daily briefing
   lastBriefingDate: string | null;
   setLastBriefingDate: (date: string) => void;
+
+  // Permit-sourced opportunities
+  addOrUpdateOpportunity: (opp: Opportunity) => void;
+  contactedOpportunityIds: Set<string>;
+  markContacted: (id: string) => void;
+
+  // Dismiss
+  dismissedOpportunityIds: Set<string>;
+  dismissOpportunity: (id: string) => void;
+  undoDismissOpportunity: (id: string) => void;
+
+  // Like / recommendation signals
+  likedOpportunityIds: Set<string>;
+  likeSignals: LikeSignals;
+  likeOpportunity: (opp: Opportunity) => void;
+
+  // Pending Scout message (set from outside the chat page, e.g. permit panel)
+  pendingScoutMessage: string | null;
+  setPendingScoutMessage: (msg: string | null) => void;
 
   // Reset
   resetStore: () => void;
@@ -238,6 +266,54 @@ export const useAppStore = create<AppStore>()(
 
       selectOpportunity: (id) => set({ selectedOpportunityId: id }),
 
+      addOrUpdateOpportunity: (opp) =>
+        set((s) => {
+          if (s.opportunities.find((o) => o.id === opp.id)) return s;
+          return { opportunities: [opp, ...s.opportunities] };
+        }),
+
+      contactedOpportunityIds: new Set(),
+      markContacted: (id) =>
+        set((s) => {
+          const next = new Set(s.contactedOpportunityIds);
+          next.add(id);
+          return { contactedOpportunityIds: next };
+        }),
+
+      pendingScoutMessage: null,
+      setPendingScoutMessage: (msg) => set({ pendingScoutMessage: msg }),
+
+      dismissedOpportunityIds: new Set(),
+      dismissOpportunity: (id) =>
+        set((s) => {
+          const next = new Set(s.dismissedOpportunityIds);
+          next.add(id);
+          return { dismissedOpportunityIds: next };
+        }),
+      undoDismissOpportunity: (id) =>
+        set((s) => {
+          const next = new Set(s.dismissedOpportunityIds);
+          next.delete(id);
+          return { dismissedOpportunityIds: next };
+        }),
+
+      likedOpportunityIds: new Set(),
+      likeSignals: { projectTypes: [], cities: [] },
+      likeOpportunity: (opp) =>
+        set((s) => {
+          const likedIds = new Set(s.likedOpportunityIds);
+          likedIds.add(opp.id);
+          const pt = opp.project.type;
+          const city = opp.project.city;
+          const projectTypes = s.likeSignals.projectTypes.includes(pt)
+            ? s.likeSignals.projectTypes
+            : [...s.likeSignals.projectTypes, pt];
+          const cities = city && !s.likeSignals.cities.includes(city)
+            ? [...s.likeSignals.cities, city]
+            : s.likeSignals.cities;
+          return { likedOpportunityIds: likedIds, likeSignals: { projectTypes, cities } };
+        }),
+
       // ── Scout briefing + coverage ─────────────────────────────────────────────
       scoutBriefing: null,
       setScoutBriefing: (text) => set({ scoutBriefing: text }),
@@ -290,8 +366,62 @@ export const useAppStore = create<AppStore>()(
       openChat: () => set({ isChatOpen: true }),
       closeChat: () => set({ isChatOpen: false }),
       addChatMessage: (msg) =>
-        set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
-      clearChat: () => set({ chatMessages: [] }),
+        set((s) => {
+          const next = [...s.chatMessages, msg];
+          // cap at 200 messages to avoid localStorage bloat
+          return { chatMessages: next.length > 200 ? next.slice(-200) : next };
+        }),
+      clearChat: () => {
+        // Save current session before clearing
+        get().saveCurrentSession();
+        set({ chatMessages: [], activeSessionId: null });
+      },
+
+      // ── Conversation sessions ─────────────────────────────────────────────────
+      sessions: [],
+      activeSessionId: null,
+
+      startNewSession: () => {
+        get().saveCurrentSession();
+        set({ chatMessages: [], activeSessionId: null });
+      },
+
+      loadSession: (id) => {
+        get().saveCurrentSession();
+        const session = get().sessions.find((s) => s.id === id);
+        if (session) {
+          set({ chatMessages: session.messages as ChatMessage[], activeSessionId: id });
+        }
+      },
+
+      saveCurrentSession: () => {
+        const { chatMessages, activeSessionId, sessions } = get();
+        const userMessages = chatMessages.filter((m) => m.role === "user");
+        if (userMessages.length === 0) return; // nothing to save
+
+        const title = (userMessages[0].content ?? "").slice(0, 40) || "Conversation";
+        const now = new Date().toISOString();
+
+        if (activeSessionId) {
+          // Update existing session
+          set({
+            sessions: sessions.map((s) =>
+              s.id === activeSessionId ? { ...s, messages: chatMessages } : s
+            ),
+          });
+        } else {
+          // Create new session
+          const newSession: ConversationSession = {
+            id: `session-${Date.now()}`,
+            title,
+            date: now,
+            messages: chatMessages,
+          };
+          // Keep only last 30 sessions
+          const updated = [newSession, ...sessions].slice(0, 30);
+          set({ sessions: updated, activeSessionId: newSession.id });
+        }
+      },
 
       // ── Daily briefing ────────────────────────────────────────────────────────
       lastBriefingDate: null,
@@ -325,7 +455,14 @@ export const useAppStore = create<AppStore>()(
           unreadCount: 0,
           chatMessages: [],
           isChatOpen: false,
+          sessions: [],
+          activeSessionId: null,
           lastBriefingDate: null,
+          contactedOpportunityIds: new Set(),
+          dismissedOpportunityIds: new Set(),
+          likedOpportunityIds: new Set(),
+          likeSignals: { projectTypes: [], cities: [] },
+          pendingScoutMessage: null,
         }),
     }),
     {
@@ -337,17 +474,27 @@ export const useAppStore = create<AppStore>()(
         setup: state.setup,
         whatsappPhone: state.whatsappPhone,
         savedOpportunityIds: [...state.savedOpportunityIds], // Set → Array for JSON
+        contactedOpportunityIds: [...state.contactedOpportunityIds],
+        dismissedOpportunityIds: [...state.dismissedOpportunityIds],
+        likedOpportunityIds: [...state.likedOpportunityIds],
+        likeSignals: state.likeSignals,
         alerts: state.alerts,
         unreadCount: state.unreadCount,
         lastBriefingDate: state.lastBriefingDate,
+        chatMessages: state.chatMessages,
+        sessions: state.sessions,
+        activeSessionId: state.activeSessionId,
       }),
       // Rehydrate: convert saved Array back to Set
       merge: (persisted, current) => {
-        const p = persisted as Partial<AppStore> & { savedOpportunityIds?: string[] };
+        const p = persisted as Partial<AppStore> & { savedOpportunityIds?: string[]; contactedOpportunityIds?: string[]; dismissedOpportunityIds?: string[]; likedOpportunityIds?: string[] };
         return {
           ...current,
           ...p,
           savedOpportunityIds: new Set(p.savedOpportunityIds ?? []),
+          contactedOpportunityIds: new Set(p.contactedOpportunityIds ?? []),
+          dismissedOpportunityIds: new Set(p.dismissedOpportunityIds ?? []),
+          likedOpportunityIds: new Set(p.likedOpportunityIds ?? []),
         };
       },
     }

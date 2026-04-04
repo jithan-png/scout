@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, CheckSquare } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
 import SignInSheet from "@/components/ui/SignInSheet";
 import OpportunityCard from "@/components/opportunities/OpportunityCard";
 import BottomNav from "@/components/ui/BottomNav";
 import FloatingChat from "@/components/ui/FloatingChat";
-import type { OpportunityPriority, Opportunity, LeadSource, ScoutOpportunity } from "@/lib/types";
+import { oppsToCSV, triggerCSVDownload } from "@/lib/export-utils";
+import type { OpportunityPriority, Opportunity, LeadSource, ScoutOpportunity, LikeSignals } from "@/lib/types";
 
 const FILTERS: { label: string; value: OpportunityPriority | "all" }[] = [
   { label: "All", value: "all" },
@@ -26,6 +27,15 @@ const SOURCE_FILTERS: { label: string; value: LeadSource | "all" }[] = [
   { label: "LinkedIn", value: "linkedin" },
 ];
 
+// ── Like boost ────────────────────────────────────────────────────────────────
+
+function computeLikeBoost(opp: Opportunity, signals: LikeSignals): number {
+  let boost = 0;
+  if (signals.projectTypes.includes(opp.project.type)) boost += 10;
+  if (signals.cities.includes(opp.project.city)) boost += 5;
+  return boost;
+}
+
 // ── Skeleton card ─────────────────────────────────────────────────────────────
 
 function SkeletonCard() {
@@ -37,7 +47,6 @@ function SkeletonCard() {
         border: "1px solid rgba(255,255,255,0.06)",
       }}
     >
-      {/* Shimmer overlay */}
       <div
         className="absolute inset-0 animate-shimmer"
         style={{
@@ -47,19 +56,10 @@ function SkeletonCard() {
       />
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <div
-            className="h-3 rounded-full w-16 mb-2"
-            style={{ background: "rgba(255,255,255,0.06)" }}
-          />
-          <div
-            className="h-5 rounded-lg w-52"
-            style={{ background: "rgba(255,255,255,0.06)" }}
-          />
+          <div className="h-3 rounded-full w-16 mb-2" style={{ background: "rgba(255,255,255,0.06)" }} />
+          <div className="h-5 rounded-lg w-52" style={{ background: "rgba(255,255,255,0.06)" }} />
         </div>
-        <div
-          className="w-10 h-10 rounded-full flex-shrink-0"
-          style={{ background: "rgba(255,255,255,0.06)" }}
-        />
+        <div className="w-10 h-10 rounded-full flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }} />
       </div>
       <div className="flex flex-col gap-1.5 mb-3">
         <div className="h-3 rounded-full w-40" style={{ background: "rgba(255,255,255,0.04)" }} />
@@ -73,7 +73,7 @@ function SkeletonCard() {
   );
 }
 
-// ── Intent filter helper ──────────────────────────────────────────────────────
+// ── Intent filter ─────────────────────────────────────────────────────────────
 
 function matchesIntent(opp: Opportunity, intent: string): boolean {
   const q = intent.toLowerCase();
@@ -83,9 +83,7 @@ function matchesIntent(opp: Opportunity, intent: string): boolean {
     opp.project.city.toLowerCase().includes(q) ||
     opp.company.name.toLowerCase().includes(q) ||
     opp.matchReasons.some(
-      (r) =>
-        r.label.toLowerCase().includes(q) ||
-        r.detail.toLowerCase().includes(q)
+      (r) => r.label.toLowerCase().includes(q) || r.detail.toLowerCase().includes(q)
     )
   );
 }
@@ -95,40 +93,112 @@ function matchesIntent(opp: Opportunity, intent: string): boolean {
 export default function OpportunitiesPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { opportunities, isLoadingOpportunities, savedOpportunityIds, selectOpportunity, activeIntent, coverageNote, setup } =
-    useAppStore();
+  const {
+    opportunities,
+    isLoadingOpportunities,
+    savedOpportunityIds,
+    selectOpportunity,
+    activeIntent,
+    coverageNote,
+    setup,
+    dismissedOpportunityIds,
+    dismissOpportunity,
+    undoDismissOpportunity,
+    likedOpportunityIds,
+    likeSignals,
+  } = useAppStore();
+
   const [filter, setFilter] = useState<OpportunityPriority | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [signInSheetOpen, setSignInSheetOpen] = useState(false);
 
-  // When an intent search was run, pre-filter by relevance
+  // Dismiss undo toast
+  const [undoTarget, setUndoTarget] = useState<{ id: string; label: string } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Bulk selection mode
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // When panel closes, reset selection
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDismiss = (id: string, label: string) => {
+    dismissOpportunity(id);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoTarget({ id, label });
+    undoTimerRef.current = setTimeout(() => setUndoTarget(null), 3500);
+  };
+
+  const handleUndo = () => {
+    if (!undoTarget) return;
+    undoDismissOpportunity(undoTarget.id);
+    setUndoTarget(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+  };
+
+  useEffect(() => () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); }, []);
+
+  // ── Filtering + sorting ──────────────────────────────────────────────────────
+
   const intentFiltered = activeIntent
     ? opportunities.filter((o) => matchesIntent(o, activeIntent))
     : opportunities;
-
-  // If intent filter yields nothing, fall back to full list
   const baseList = intentFiltered.length > 0 ? intentFiltered : opportunities;
 
-  // Apply source filter (only meaningful on ScoutOpportunity items)
+  // Remove dismissed
+  const undismissed = baseList.filter((o) => !dismissedOpportunityIds.has(o.id));
+
   const sourceFiltered =
     sourceFilter === "all"
-      ? baseList
-      : baseList.filter((o) => {
+      ? undismissed
+      : undismissed.filter((o) => {
           const scout = o as ScoutOpportunity;
           return scout.primarySource === sourceFilter;
         });
 
-  const filtered =
+  const priorityFiltered =
     filter === "all"
       ? sourceFiltered
       : sourceFiltered.filter((o) => o.priority === filter);
+
+  // Sort by score + like boost
+  const filtered = [...priorityFiltered].sort(
+    (a, b) =>
+      (b.score + computeLikeBoost(b, likeSignals)) -
+      (a.score + computeLikeBoost(a, likeSignals))
+  );
 
   const counts = {
     hot: sourceFiltered.filter((o) => o.priority === "hot").length,
     warm: sourceFiltered.filter((o) => o.priority === "warm").length,
     watch: sourceFiltered.filter((o) => o.priority === "watch").length,
+  };
+
+  // Bulk export
+  const handleBulkExport = () => {
+    const selected = filtered.filter((o) => selectedIds.has(o.id));
+    const csv = oppsToCSV(selected);
+    triggerCSVDownload(csv, `opportunities-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleBulkDismiss = () => {
+    selectedIds.forEach((id) => dismissOpportunity(id));
+    exitSelection();
   };
 
   return (
@@ -150,30 +220,45 @@ export default function OpportunitiesPage() {
                 <span style={{ color: "#3F3F46" }}>Loading…</span>
               ) : (
                 <>
-                  Scout found {baseList.length} leads · {counts.hot} need attention
+                  Scout found {undismissed.length} leads · {counts.hot} need attention
                   {activeIntent && (
-                    <span style={{ color: "#3F3F46" }}> · "{activeIntent}"</span>
+                    <span style={{ color: "#3F3F46" }}> · &ldquo;{activeIntent}&rdquo;</span>
                   )}
                 </>
               )}
             </p>
           </div>
-          <button
-            onClick={() => setFilterSheetOpen(true)}
-            className="pressable w-9 h-9 rounded-full flex items-center justify-center relative"
-            style={{
-              background: sourceFilter !== "all" ? "rgba(0,200,117,0.12)" : "rgba(255,255,255,0.05)",
-              border: sourceFilter !== "all" ? "1px solid rgba(0,200,117,0.3)" : "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            <SlidersHorizontal size={16} strokeWidth={2} style={{ color: sourceFilter !== "all" ? "#00C875" : "#A1A1AA" }} />
-            {sourceFilter !== "all" && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: "#00C875" }} />
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Select / Cancel toggle */}
+            <button
+              onClick={selectionMode ? exitSelection : () => setSelectionMode(true)}
+              className="pressable px-3 py-1.5 rounded-xl text-[12px] font-semibold"
+              style={{
+                background: selectionMode ? "rgba(0,200,117,0.12)" : "rgba(255,255,255,0.05)",
+                color: selectionMode ? "#34D399" : "#71717A",
+                border: selectionMode ? "1px solid rgba(0,200,117,0.25)" : "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              {selectionMode ? "Cancel" : "Select"}
+            </button>
+            {/* Source filter */}
+            <button
+              onClick={() => setFilterSheetOpen(true)}
+              className="pressable w-9 h-9 rounded-full flex items-center justify-center relative"
+              style={{
+                background: sourceFilter !== "all" ? "rgba(0,200,117,0.12)" : "rgba(255,255,255,0.05)",
+                border: sourceFilter !== "all" ? "1px solid rgba(0,200,117,0.3)" : "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              <SlidersHorizontal size={16} strokeWidth={2} style={{ color: sourceFilter !== "all" ? "#00C875" : "#A1A1AA" }} />
+              {sourceFilter !== "all" && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: "#00C875" }} />
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Nudge banner for unauthenticated users */}
+        {/* Nudge banner */}
         {!session && !nudgeDismissed && !isLoadingOpportunities && opportunities.length > 0 && (
           <div
             className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-4 animate-fade-up"
@@ -195,17 +280,14 @@ export default function OpportunitiesPage() {
               >
                 Sign in
               </button>
-              <button
-                onClick={() => setNudgeDismissed(true)}
-                className="pressable"
-              >
+              <button onClick={() => setNudgeDismissed(true)} className="pressable">
                 <X size={14} strokeWidth={2} style={{ color: "#3F3F46" }} />
               </button>
             </div>
           </div>
         )}
 
-        {/* Priority filter pills — only row always visible */}
+        {/* Priority filter pills */}
         <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {FILTERS.map(({ label, value }) => {
             const isActive = filter === value;
@@ -233,8 +315,11 @@ export default function OpportunitiesPage() {
 
       {/* ── Filter sheet ────────────────────────────────────────────────── */}
       {filterSheetOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-          onClick={() => setFilterSheetOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={() => setFilterSheetOpen(false)}
+        >
           <div
             className="rounded-t-3xl p-6 animate-fade-up"
             style={{ background: "#141418", border: "1px solid rgba(255,255,255,0.08)" }}
@@ -284,10 +369,7 @@ export default function OpportunitiesPage() {
         <div className="px-5 pb-3">
           <div
             className="px-4 py-3 rounded-xl"
-            style={{
-              background: "rgba(0,200,117,0.06)",
-              border: "1px solid rgba(0,200,117,0.14)",
-            }}
+            style={{ background: "rgba(0,200,117,0.06)", border: "1px solid rgba(0,200,117,0.14)" }}
           >
             <p className="text-[12px] leading-relaxed" style={{ color: "#6EE7B7" }}>
               {coverageNote}
@@ -300,14 +382,9 @@ export default function OpportunitiesPage() {
       <main className="px-5">
         <div className="flex flex-col gap-3 pb-2">
           {isLoadingOpportunities ? (
-            // Skeleton placeholders
             <>
               {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="animate-fade-up"
-                  style={{ animationDelay: `${i * 80}ms` }}
-                >
+                <div key={i} className="animate-fade-up" style={{ animationDelay: `${i * 80}ms` }}>
                   <SkeletonCard />
                 </div>
               ))}
@@ -315,15 +392,16 @@ export default function OpportunitiesPage() {
           ) : (
             <>
               {filtered.map((opp, i) => (
-                <div
-                  key={opp.id}
-                  className="animate-fade-up"
-                  style={{ animationDelay: `${i * 60}ms` }}
-                >
+                <div key={opp.id} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
                   <OpportunityCard
                     opportunity={opp}
                     isSaved={savedOpportunityIds.has(opp.id)}
+                    isLiked={likedOpportunityIds.has(opp.id)}
                     index={i}
+                    selectionMode={selectionMode}
+                    isSelected={selectedIds.has(opp.id)}
+                    onSelect={() => toggleSelect(opp.id)}
+                    onDismiss={!selectionMode ? () => handleDismiss(opp.id, opp.project.name) : undefined}
                     onClick={() => {
                       selectOpportunity(opp.id);
                       router.push(`/opportunities/${opp.id}`);
@@ -378,6 +456,95 @@ export default function OpportunitiesPage() {
       <div className="pb-nav" />
       <BottomNav />
       <FloatingChat />
+
+      {/* ── Dismiss undo toast ──────────────────────────────────────── */}
+      {undoTarget && (
+        <div
+          className="fixed left-1/2 z-50 animate-fade-up"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
+            transform: "translateX(-50%)",
+            width: "calc(100% - 40px)",
+            maxWidth: 390,
+          }}
+        >
+          <div
+            className="flex items-center justify-between px-4 py-3 rounded-2xl"
+            style={{
+              background: "#27272A",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            <p className="text-[13px]" style={{ color: "#A1A1AA" }}>
+              <span style={{ color: "#F4F4F5" }}>{undoTarget.label}</span> removed
+            </p>
+            <button
+              onClick={handleUndo}
+              className="pressable text-[13px] font-semibold ml-4"
+              style={{ color: "#00C875" }}
+            >
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk selection action bar ────────────────────────────────── */}
+      {selectionMode && (
+        <div
+          className="fixed left-1/2 z-50"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
+            transform: "translateX(-50%)",
+            width: "calc(100% - 40px)",
+            maxWidth: 390,
+          }}
+        >
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+            style={{
+              background: "#1C1C22",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            <p className="text-[13px] font-semibold flex-1" style={{ color: "#F4F4F5" }}>
+              {selectedIds.size} selected
+            </p>
+            <button
+              onClick={handleBulkExport}
+              disabled={selectedIds.size === 0}
+              className="pressable px-3 py-1.5 rounded-xl text-[12px] font-semibold"
+              style={{
+                background: selectedIds.size > 0 ? "rgba(0,200,117,0.12)" : "rgba(255,255,255,0.04)",
+                color: selectedIds.size > 0 ? "#34D399" : "#3F3F46",
+                border: selectedIds.size > 0 ? "1px solid rgba(0,200,117,0.25)" : "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={handleBulkDismiss}
+              disabled={selectedIds.size === 0}
+              className="pressable px-3 py-1.5 rounded-xl text-[12px] font-semibold"
+              style={{
+                background: selectedIds.size > 0 ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.04)",
+                color: selectedIds.size > 0 ? "#EF4444" : "#3F3F46",
+                border: selectedIds.size > 0 ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={exitSelection}
+              className="pressable"
+            >
+              <X size={16} strokeWidth={2} style={{ color: "#52525B" }} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <SignInSheet
         open={signInSheetOpen}

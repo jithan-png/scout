@@ -10,12 +10,14 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
+    "@supabase/supabase-js": "^2.101.1",
     "lucide-react": "^0.378.0",
     "next": "^16.2.1",
     "next-auth": "^5.0.0-beta.30",
     "react": "^18",
     "react-dom": "^18",
     "twilio": "^5.13.1",
+    "xlsx": "^0.18.5",
     "zustand": "^4.5.2"
   },
   "overrides": {

@@ -11,6 +11,8 @@ interface ChatMessage {
 interface FloatingChatProps {
   /** Context string passed to Scout — e.g. lead name, company, value */
   context?: string;
+  /** When set, auto-opens the chat and sends this query immediately */
+  triggerQuery?: string | null;
 }
 
 // ── Scout logo ────────────────────────────────────────────────────────────────
@@ -35,7 +37,7 @@ const QUICK_ACTIONS = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function FloatingChat({ context = "" }: FloatingChatProps) {
+export default function FloatingChat({ context = "", triggerQuery }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -43,8 +45,22 @@ export default function FloatingChat({ context = "" }: FloatingChatProps) {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const sentTriggerRef = useRef<string | null>(null);
 
   const hasText = input.trim().length > 0;
+
+  // Auto-open and send when triggerQuery changes
+  useEffect(() => {
+    if (triggerQuery && triggerQuery !== sentTriggerRef.current) {
+      sentTriggerRef.current = triggerQuery;
+      setMessages([]);
+      setInput("");
+      setIsOpen(true);
+      // Short delay to let the sheet animate in before sending
+      setTimeout(() => handleSend(triggerQuery), 400);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerQuery]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

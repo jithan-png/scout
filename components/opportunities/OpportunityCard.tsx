@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Clock, Building2, Globe, FileText, Linkedin } from "lucide-react";
+import { MapPin, Clock, Building2, Globe, FileText, Linkedin, X } from "lucide-react";
 import type { Opportunity, ScoutOpportunity, LeadSource } from "@/lib/types";
 
 // ── Score ring ────────────────────────────────────────────────────────────────
@@ -174,14 +174,24 @@ function formatValue(v: number): string {
 interface OpportunityCardProps {
   opportunity: Opportunity | ScoutOpportunity;
   isSaved?: boolean;
+  isLiked?: boolean;
   onClick: () => void;
+  onDismiss?: () => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
   index?: number;
 }
 
 export default function OpportunityCard({
   opportunity,
   isSaved,
+  isLiked,
   onClick,
+  onDismiss,
+  selectionMode,
+  isSelected,
+  onSelect,
   index = 0,
 }: OpportunityCardProps) {
   const { project, company, relationship, matchReasons, score, priority, timing, suggestedAction } =
@@ -209,7 +219,7 @@ export default function OpportunityCard({
 
   return (
     <button
-      onClick={onClick}
+      onClick={selectionMode ? onSelect : onClick}
       className="w-full text-left pressable"
       style={{ animationDelay: `${index * 80}ms` }}
     >
@@ -217,11 +227,44 @@ export default function OpportunityCard({
         className="rounded-2xl p-4 transition-all duration-200 relative overflow-hidden"
         style={{
           background: "#1C1C22",
-          border: "1px solid rgba(255,255,255,0.07)",
-          boxShadow:
-            "0 1px 1px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)",
+          border: isSelected
+            ? "1px solid rgba(0,200,117,0.5)"
+            : isLiked
+            ? "1px solid rgba(0,200,117,0.22)"
+            : "1px solid rgba(255,255,255,0.07)",
+          boxShadow: isLiked
+            ? "0 1px 1px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(0,200,117,0.12)"
+            : "0 1px 1px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
       >
+        {/* Selection checkbox */}
+        {selectionMode && (
+          <div
+            className="absolute top-3 left-3 z-10 w-5 h-5 rounded-full flex items-center justify-center"
+            style={{
+              background: isSelected ? "#00C875" : "rgba(255,255,255,0.08)",
+              border: isSelected ? "none" : "1px solid rgba(255,255,255,0.2)",
+            }}
+          >
+            {isSelected && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
+        )}
+
+        {/* Dismiss X button */}
+        {!selectionMode && onDismiss && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+            className="pressable absolute top-3 right-3 z-10 w-6 h-6 rounded-lg flex items-center justify-center transition-colors"
+            style={{ background: "transparent" }}
+            aria-label="Remove opportunity"
+          >
+            <X size={12} strokeWidth={2.5} style={{ color: "#3F3F46" }} />
+          </button>
+        )}
         {/* Engineering drawing corner brackets */}
         {[
           { top: 6, left: 6, borderTop: "1px solid rgba(255,255,255,0.1)", borderLeft: "1px solid rgba(255,255,255,0.1)" },
@@ -233,7 +276,7 @@ export default function OpportunityCard({
         ))}
 
         {/* ── Top row ─── */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3" style={{ paddingLeft: selectionMode ? 28 : 0 }}>
           <div className="flex items-center gap-2">
             <div
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
@@ -256,8 +299,20 @@ export default function OpportunityCard({
             <SourceBadge source={primarySource} count={sourceCount} />
           </div>
 
-          <div className="flex items-center gap-2">
-            {isSaved && (
+          <div className="flex items-center gap-2" style={{ marginRight: onDismiss && !selectionMode ? 20 : 0 }}>
+            {isLiked && (
+              <span
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(0,200,117,0.1)",
+                  color: "#34D399",
+                  border: "1px solid rgba(0,200,117,0.2)",
+                }}
+              >
+                Liked
+              </span>
+            )}
+            {isSaved && !isLiked && (
               <span
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                 style={{
