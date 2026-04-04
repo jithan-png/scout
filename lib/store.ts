@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Opportunity, Alert, AgentUpdate, DataConnection, SearchIntent, User, ScoutOpportunity, ScoutPanelData, ConversationSession, LikeSignals } from "./types";
+import type { Opportunity, Alert, AgentUpdate, DataConnection, SearchIntent, User, ScoutOpportunity, ScoutPanelData, ConversationSession, LikeSignals, ActivityItem, ActivityOutcome } from "./types";
 import {
   MOCK_OPPORTUNITIES,
   MOCK_ALERTS,
@@ -142,6 +142,14 @@ interface AppStore {
   pendingScoutMessage: string | null;
   setPendingScoutMessage: (msg: string | null) => void;
 
+  // Activity feed
+  activityItems: ActivityItem[];
+  addActivityItem: (item: Omit<ActivityItem, "id" | "createdAt">) => void;
+  dismissActivityItem: (id: string) => void;
+  completeActivityItem: (id: string) => void;
+  snoozeActivityItem: (id: string) => void;
+  markOutcome: (id: string, outcome: ActivityOutcome) => void;
+
   // Reset
   resetStore: () => void;
 }
@@ -275,9 +283,31 @@ export const useAppStore = create<AppStore>()(
       contactedOpportunityIds: new Set(),
       markContacted: (id) =>
         set((s) => {
+          if (s.contactedOpportunityIds.has(id)) return {}; // already marked, no duplicate
           const next = new Set(s.contactedOpportunityIds);
           next.add(id);
-          return { contactedOpportunityIds: next };
+          // Find the opportunity for context
+          const opp = s.opportunities.find((o) => o.id === id);
+          const dueAt = new Date(Date.now() + 5 * 86400000).toISOString();
+          const followUpItem: ActivityItem = {
+            id: `followup-${id}-${Date.now()}`,
+            type: "follow_up",
+            status: "pending",
+            priority: "high",
+            title: `Follow up with ${opp?.company.name ?? "this lead"}`,
+            body: `You reached out about ${opp?.project.name ?? "a project"}. Check back in — any update?`,
+            oppId: id,
+            companyName: opp?.company.name,
+            phone: (opp as ScoutOpportunity)?.contacts?.[0]?.phone ?? (opp as ScoutOpportunity)?.companies?.[0]?.phone,
+            email: (opp as ScoutOpportunity)?.contacts?.[0]?.email ?? (opp as ScoutOpportunity)?.companies?.[0]?.email,
+            primaryAction: "email",
+            createdAt: new Date().toISOString(),
+            dueAt,
+          };
+          return {
+            contactedOpportunityIds: next,
+            activityItems: [followUpItem, ...s.activityItems],
+          };
         }),
 
       pendingScoutMessage: null,
@@ -336,7 +366,7 @@ export const useAppStore = create<AppStore>()(
 
       // ── Alerts ───────────────────────────────────────────────────────────────
       alerts: MOCK_ALERTS,
-      unreadCount: MOCK_ALERTS.filter((a) => !a.read).length,
+      unreadCount: 3, // seed activity items above include 2 high + 1 medium = 3 pending actions
 
       markAlertRead: (id) =>
         set((s) => {
@@ -427,6 +457,108 @@ export const useAppStore = create<AppStore>()(
       lastBriefingDate: null,
       setLastBriefingDate: (date) => set({ lastBriefingDate: date }),
 
+      // ── Activity feed ─────────────────────────────────────────────────────────
+      activityItems: [
+        {
+          id: "seed-permit-issued",
+          type: "hot_lead",
+          status: "pending",
+          priority: "high",
+          title: "Permit just issued — window is open",
+          body: "3445 Adanac St (Westbury Properties) flipped from In Review to Issued. Roofing and framing subs get locked in fast.",
+          primaryAction: "review",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "seed-followup-1",
+          type: "follow_up",
+          status: "pending",
+          priority: "high",
+          title: "Follow up with Aquilini Development",
+          body: "You reached out 7 days ago about 657 W 37th Ave. No update logged — worth a quick check-in?",
+          companyName: "Aquilini Development LP",
+          primaryAction: "email",
+          createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+        },
+        {
+          id: "seed-new-matches",
+          type: "new_matches",
+          status: "pending",
+          priority: "medium",
+          title: "Scout found 11 new leads",
+          body: "3 issued permits in Vancouver match your profile — 2 are Townhomes, your most liked type.",
+          primaryAction: "browse",
+          createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
+        },
+        {
+          id: "seed-like-signal",
+          type: "like_signal",
+          status: "pending",
+          priority: "medium",
+          title: "4 leads similar to ones you liked",
+          body: "Based on your Townhomes/Row Homes preference in Vancouver, Scout surfaced 4 similar projects.",
+          primaryAction: "browse",
+          createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+        },
+        {
+          id: "seed-scan-complete",
+          type: "scan_complete",
+          status: "pending",
+          priority: "low",
+          title: "Weekly scan complete",
+          body: "Scout reviewed 47 permits and 12 web sources. 11 matched your profile across Vancouver and Burnaby.",
+          primaryAction: "browse",
+          createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
+        },
+      ] as ActivityItem[],
+
+      addActivityItem: (item) =>
+        set((s) => {
+          const newItem: ActivityItem = {
+            ...item,
+            id: `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            createdAt: new Date().toISOString(),
+          };
+          const pending = s.activityItems.filter((i) => i.status === "pending" && !i.snoozedUntil).length + 1;
+          return {
+            activityItems: [newItem, ...s.activityItems],
+            unreadCount: pending,
+          };
+        }),
+
+      dismissActivityItem: (id) =>
+        set((s) => {
+          const items = s.activityItems.map((i) =>
+            i.id === id ? { ...i, status: "dismissed" as const } : i
+          );
+          return { activityItems: items, unreadCount: items.filter((i) => i.status === "pending").length };
+        }),
+
+      completeActivityItem: (id) =>
+        set((s) => {
+          const items = s.activityItems.map((i) =>
+            i.id === id ? { ...i, status: "done" as const } : i
+          );
+          return { activityItems: items, unreadCount: items.filter((i) => i.status === "pending").length };
+        }),
+
+      snoozeActivityItem: (id) =>
+        set((s) => {
+          const snoozedUntil = new Date(Date.now() + 2 * 86400000).toISOString();
+          const items = s.activityItems.map((i) =>
+            i.id === id ? { ...i, snoozedUntil } : i
+          );
+          return { activityItems: items, unreadCount: items.filter((i) => i.status === "pending" && !i.snoozedUntil).length };
+        }),
+
+      markOutcome: (id, outcome) =>
+        set((s) => {
+          const items = s.activityItems.map((i) =>
+            i.id === id ? { ...i, outcome, status: "done" as const } : i
+          );
+          return { activityItems: items, unreadCount: items.filter((i) => i.status === "pending").length };
+        }),
+
       resetStore: () =>
         set({
           user: null,
@@ -463,6 +595,7 @@ export const useAppStore = create<AppStore>()(
           likedOpportunityIds: new Set(),
           likeSignals: { projectTypes: [], cities: [] },
           pendingScoutMessage: null,
+          activityItems: [],
         }),
     }),
     {
@@ -484,6 +617,7 @@ export const useAppStore = create<AppStore>()(
         chatMessages: state.chatMessages,
         sessions: state.sessions,
         activeSessionId: state.activeSessionId,
+        activityItems: state.activityItems,
       }),
       // Rehydrate: convert saved Array back to Set
       merge: (persisted, current) => {

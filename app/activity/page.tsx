@@ -1,237 +1,511 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Flame, Users, Clock, RefreshCw } from "lucide-react";
+import {
+  Bell, Check, X, Clock, ChevronDown, ChevronUp,
+  Mail, Phone, ArrowRight, Sparkles, Zap, Trophy, ThumbsDown,
+} from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import BottomNav from "@/components/ui/BottomNav";
-import type { Alert } from "@/lib/types";
+import FloatingChat from "@/components/ui/FloatingChat";
+import OpportunityDetailContent from "@/components/opportunities/OpportunityDetailContent";
+import type { ActivityItem, ActivityItemType } from "@/lib/types";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
-  const hours = Math.floor(diff / 3_600_000);
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  return "Just now";
+  const mins = Math.floor(diff / 60000);
+  const hrs = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  if (hrs < 24) return `${hrs}h ago`;
+  if (days === 1) return "yesterday";
+  return `${days}d ago`;
 }
 
-const ALERT_META: Record<
-  Alert["type"],
-  { icon: React.ElementType; color: string; bg: string }
-> = {
-  new_opportunity: {
-    icon: Flame,
-    color: "#EF4444",
-    bg: "rgba(239,68,68,0.10)",
+function isItemActive(item: ActivityItem): boolean {
+  if (item.status !== "pending") return false;
+  if (item.snoozedUntil && new Date(item.snoozedUntil) > new Date()) return false;
+  if (item.dueAt && new Date(item.dueAt) > new Date()) return false;
+  return true;
+}
+
+// ── Priority config ───────────────────────────────────────────────────────────
+
+const PRIORITY_CONFIG = {
+  high: {
+    dot: "#EF4444",
+    label: "Action needed",
+    labelColor: "#EF4444",
+    bg: "rgba(239,68,68,0.07)",
+    border: "rgba(239,68,68,0.18)",
   },
-  warm_path: {
-    icon: Users,
-    color: "#F59E0B",
-    bg: "rgba(245,158,11,0.10)",
+  medium: {
+    dot: "#F59E0B",
+    label: "Update",
+    labelColor: "#F59E0B",
+    bg: "rgba(245,158,11,0.06)",
+    border: "rgba(245,158,11,0.15)",
   },
-  follow_up: {
-    icon: Clock,
-    color: "#00C875",
-    bg: "rgba(0,200,117,0.10)",
-  },
-  update: {
-    icon: RefreshCw,
-    color: "#A1A1AA",
-    bg: "rgba(255,255,255,0.06)",
+  low: {
+    dot: "#52525B",
+    label: "Info",
+    labelColor: "#71717A",
+    bg: "rgba(255,255,255,0.03)",
+    border: "rgba(255,255,255,0.07)",
   },
 };
 
-function AlertRow({
-  alert,
-  onPress,
-  index,
-}: {
-  alert: Alert;
-  onPress: () => void;
-  index: number;
-}) {
-  const { icon: Icon, color, bg } = ALERT_META[alert.type];
+const TYPE_ICONS: Record<ActivityItemType, React.ReactNode> = {
+  follow_up:     <Clock size={14} strokeWidth={2} style={{ color: "#F59E0B" }} />,
+  new_matches:   <Sparkles size={14} strokeWidth={2} style={{ color: "#00C875" }} />,
+  hot_lead:      <Zap size={14} strokeWidth={2} style={{ color: "#EF4444" }} />,
+  permit_issued: <Zap size={14} strokeWidth={2} style={{ color: "#EF4444" }} />,
+  scan_complete: <Bell size={14} strokeWidth={2} style={{ color: "#52525B" }} />,
+  outcome:       <Trophy size={14} strokeWidth={2} style={{ color: "#F59E0B" }} />,
+  like_signal:   <Sparkles size={14} strokeWidth={2} style={{ color: "#A78BFA" }} />,
+};
+
+// ── Review sheet ──────────────────────────────────────────────────────────────
+
+function ReviewSheet({ oppId, onClose }: { oppId: string; onClose: () => void }) {
+  const { opportunities } = useAppStore();
+  const opp = opportunities.find((o) => o.id === oppId);
 
   return (
-    <button
-      onClick={onPress}
-      className="w-full text-left pressable animate-fade-up"
-      style={{ animationDelay: `${index * 50}ms` }}
-    >
+    <>
       <div
-        className="flex items-start gap-3 px-4 py-4 rounded-2xl transition-all duration-200"
+        className="fixed inset-0 z-40"
+        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        className="fixed left-1/2 -translate-x-1/2 bottom-0 z-50 w-full max-w-[430px] flex flex-col"
         style={{
-          background: alert.read ? "rgba(255,255,255,0.02)" : "#1C1C22",
-          border: alert.read
-            ? "1px solid rgba(255,255,255,0.04)"
-            : "1px solid rgba(255,255,255,0.07)",
-          boxShadow: alert.read
-            ? "none"
-            : "0 1px 1px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)",
-          opacity: alert.read ? 0.55 : 1,
+          height: "88dvh",
+          background: "#09090B",
+          borderTop: "1px solid rgba(255,255,255,0.09)",
+          borderRadius: "24px 24px 0 0",
+          boxShadow: "0 -8px 40px rgba(0,0,0,0.6)",
         }}
       >
-        {/* Icon */}
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: bg }}
-        >
-          <Icon size={15} style={{ color }} strokeWidth={2} />
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-8 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }} />
         </div>
-
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <p
-              className="text-[14px] leading-tight"
-              style={{
-                color: alert.read ? "#71717A" : "#F4F4F5",
-                fontWeight: alert.read ? 400 : 600,
-              }}
-            >
-              {alert.title}
-            </p>
-            <span
-              className="text-[11px] flex-shrink-0"
-              style={{ color: "#3F3F46" }}
-            >
-              {timeAgo(alert.createdAt)}
-            </span>
-          </div>
-          <p
-            className="text-[13px] mt-1 leading-snug"
-            style={{ color: "#52525B" }}
-          >
-            {alert.body}
-          </p>
+        <div className="flex-1 overflow-y-auto">
+          {opp ? (
+            <OpportunityDetailContent opp={opp} onBack={onClose} compact />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
+              <p className="text-[14px]" style={{ color: "#52525B" }}>
+                This lead isn&apos;t in your pipeline yet.
+              </p>
+              <p className="text-[12px]" style={{ color: "#3F3F46" }}>
+                Go to Scout and ask about it to add it.
+              </p>
+              <button onClick={onClose} className="pressable mt-2 text-[13px] font-semibold" style={{ color: "#00C875" }}>
+                Close
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* Unread dot */}
-        {!alert.read && (
-          <div
-            className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
-            style={{
-              background: "#00C875",
-              boxShadow: "0 0 6px rgba(0,200,117,0.5)",
-            }}
-          />
-        )}
       </div>
-    </button>
+    </>
   );
 }
 
-export default function ActivityPage() {
-  const router = useRouter();
-  const { alerts, unreadCount, markAlertRead, markAllRead } = useAppStore();
+// ── Outcome chooser ───────────────────────────────────────────────────────────
 
-  const unread = alerts.filter((a) => !a.read);
-  const read = alerts.filter((a) => a.read);
+function OutcomeChooser({
+  item,
+  onDone,
+}: {
+  item: ActivityItem;
+  onDone: () => void;
+}) {
+  const { markOutcome } = useAppStore();
+  return (
+    <div
+      className="mt-3 p-3 rounded-xl animate-fade-up"
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+    >
+      <p className="text-[11px] font-semibold mb-2.5 uppercase tracking-wider" style={{ color: "#52525B" }}>
+        How did it go?
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => { markOutcome(item.id, "won"); onDone(); }}
+          className="pressable flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-semibold"
+          style={{ background: "rgba(0,200,117,0.12)", border: "1px solid rgba(0,200,117,0.25)", color: "#34D399" }}
+        >
+          <Trophy size={13} strokeWidth={2} />Won it
+        </button>
+        <button
+          onClick={() => { markOutcome(item.id, "lost"); onDone(); }}
+          className="pressable flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-semibold"
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#71717A" }}
+        >
+          <ThumbsDown size={13} strokeWidth={2} />Not this time
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Activity card ─────────────────────────────────────────────────────────────
+
+function ActivityCard({
+  item,
+  onReview,
+}: {
+  item: ActivityItem;
+  onReview: (oppId: string) => void;
+}) {
+  const router = useRouter();
+  const {
+    dismissActivityItem,
+    completeActivityItem,
+    snoozeActivityItem,
+    markContacted,
+  } = useAppStore();
+
+  const [showOutcome, setShowOutcome] = useState(false);
+  const [exiting, setExiting] = useState(false);
+
+  const p = PRIORITY_CONFIG[item.priority];
+  const icon = TYPE_ICONS[item.type];
+  const isDone = item.status === "done";
+  const isDismissed = item.status === "dismissed";
+  const isSnoozed = !!(item.snoozedUntil && new Date(item.snoozedUntil) > new Date());
+
+  const exitThen = (fn: () => void) => {
+    setExiting(true);
+    setTimeout(fn, 250);
+  };
+
+  const handleDismiss = () => exitThen(() => dismissActivityItem(item.id));
+  const handleComplete = () => exitThen(() => completeActivityItem(item.id));
+
+  const handlePrimary = () => {
+    switch (item.primaryAction) {
+      case "call":
+        if (item.phone) window.open(`tel:${item.phone}`, "_self");
+        if (item.oppId) markContacted(item.oppId);
+        handleComplete();
+        break;
+      case "email":
+        if (item.email) {
+          window.open(`mailto:${item.email}`, "_self");
+          if (item.oppId) markContacted(item.oppId);
+          handleComplete();
+        } else if (item.oppId) {
+          onReview(item.oppId);
+        }
+        break;
+      case "review":
+        if (item.oppId) onReview(item.oppId);
+        break;
+      case "outcome":
+        setShowOutcome(true);
+        break;
+      case "browse":
+        router.push("/opportunities");
+        handleComplete();
+        break;
+    }
+  };
+
+  const primaryLabel: Record<string, string> = {
+    call: "Call",
+    email: item.email ? "Send email" : "Open lead",
+    review: "View lead",
+    outcome: "Log outcome",
+    browse: "Review leads",
+  };
+
+  const primaryStyle =
+    item.priority === "high"
+      ? {
+          background: "linear-gradient(135deg, #00C875 0%, #00A860 100%)",
+          color: "#fff",
+          boxShadow: "0 0 14px rgba(0,200,117,0.25)",
+        }
+      : {
+          background: "rgba(255,255,255,0.07)",
+          color: "#A1A1AA",
+          border: "1px solid rgba(255,255,255,0.09)",
+        };
+
+  const doneLabel =
+    item.outcome === "won"
+      ? "WON"
+      : item.outcome === "lost"
+      ? "LOST"
+      : isDismissed
+      ? "SKIPPED"
+      : "DONE";
 
   return (
-    <div className="flex flex-col min-h-dvh bg-base">
+    <div
+      className="rounded-2xl p-4 relative transition-all duration-250"
+      style={{
+        background: isDone || isDismissed ? "rgba(255,255,255,0.02)" : p.bg,
+        border: `1px solid ${isDone || isDismissed ? "rgba(255,255,255,0.05)" : p.border}`,
+        opacity: exiting ? 0 : isDone || isDismissed || isSnoozed ? 0.5 : 1,
+        transform: exiting ? "scale(0.97)" : "scale(1)",
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex-shrink-0">{icon}</div>
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: isDone || isDismissed ? "#3F3F46" : p.dot }} />
+          <span className="text-[10px] font-bold tracking-wider uppercase flex-shrink-0" style={{ color: isDone || isDismissed ? "#3F3F46" : p.labelColor }}>
+            {isDone || isDismissed ? doneLabel : isSnoozed ? "SNOOZED 2D" : p.label}
+          </span>
+          <span className="text-[10px] truncate" style={{ color: "#3F3F46" }}>
+            · {timeAgo(item.createdAt)}
+          </span>
+        </div>
+
+        {!isDone && !isDismissed && (
+          <button
+            onClick={handleDismiss}
+            className="pressable flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.05)" }}
+            aria-label="Dismiss"
+          >
+            <X size={10} strokeWidth={2.5} style={{ color: "#52525B" }} />
+          </button>
+        )}
+        {(isDone || isDismissed) && (
+          <div
+            className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: item.outcome === "won" ? "rgba(0,200,117,0.15)" : "rgba(255,255,255,0.05)" }}
+          >
+            <Check size={9} strokeWidth={2.5} style={{ color: item.outcome === "won" ? "#00C875" : "#3F3F46" }} />
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <p
+        className="text-[14px] font-semibold leading-snug mb-1"
+        style={{ color: isDone || isDismissed ? "#52525B" : "#F4F4F5" }}
+      >
+        {item.title}
+      </p>
+      <p className="text-[12px] leading-relaxed" style={{ color: isDone || isDismissed ? "#3F3F46" : "#71717A" }}>
+        {item.body}
+      </p>
+
+      {/* Outcome chooser inline */}
+      {showOutcome && (
+        <OutcomeChooser
+          item={item}
+          onDone={() => {
+            setShowOutcome(false);
+            handleComplete();
+          }}
+        />
+      )}
+
+      {/* Action row — only for active items */}
+      {!isDone && !isDismissed && !isSnoozed && !showOutcome && (
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          {/* Primary */}
+          <button
+            onClick={handlePrimary}
+            className="pressable flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-semibold flex-shrink-0"
+            style={primaryStyle}
+          >
+            {item.primaryAction === "call" && <Phone size={12} strokeWidth={2} />}
+            {item.primaryAction === "email" && <Mail size={12} strokeWidth={2} />}
+            {(item.primaryAction === "review" || item.primaryAction === "browse") && (
+              <ArrowRight size={12} strokeWidth={2} />
+            )}
+            {item.primaryAction === "outcome" && <Trophy size={12} strokeWidth={2} />}
+            {primaryLabel[item.primaryAction]}
+          </button>
+
+          {/* Snooze for high priority */}
+          {item.priority === "high" && (
+            <button
+              onClick={() => snoozeActivityItem(item.id)}
+              className="pressable flex items-center gap-1 px-2.5 py-2 rounded-xl text-[11px] font-semibold"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                color: "#52525B",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <Clock size={10} strokeWidth={2} />
+              Snooze 2d
+            </button>
+          )}
+
+          {/* Log outcome for follow_up items */}
+          {item.type === "follow_up" && (
+            <button
+              onClick={() => setShowOutcome(true)}
+              className="pressable flex items-center gap-1 px-2.5 py-2 rounded-xl text-[11px] font-semibold ml-auto"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                color: "#3F3F46",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <Trophy size={10} strokeWidth={2} />
+              Log outcome
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-8 text-center animate-fade-up">
+      <div
+        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+        style={{ background: "rgba(0,200,117,0.07)", border: "1px solid rgba(0,200,117,0.12)" }}
+      >
+        <Check size={22} strokeWidth={2} style={{ color: "#00C875" }} />
+      </div>
+      <p className="text-[15px] font-semibold mb-2" style={{ color: "#F4F4F5" }}>
+        You&apos;re all caught up
+      </p>
+      <p className="text-[13px] leading-relaxed" style={{ color: "#52525B" }}>
+        Scout will notify you when permits are issued, follow-ups are due, or new leads match your profile.
+      </p>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function ActivityPage() {
+  const { activityItems } = useAppStore();
+  const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [reviewOppId, setReviewOppId] = useState<string | null>(null);
+  const [floatingQuery, setFloatingQuery] = useState<string | null>(null);
+
+  const activeItems = activityItems.filter(isItemActive);
+  const needsActionItems = activeItems.filter((i) => i.priority === "high");
+  const updateItems = activeItems.filter((i) => i.priority !== "high");
+  const completedItems = activityItems.filter(
+    (i) => i.status === "done" || i.status === "dismissed"
+  );
+
+  const pendingCount = needsActionItems.length;
+
+  return (
+    <div className="flex flex-col min-h-dvh" style={{ background: "#09090B" }}>
       <div className="safe-top" />
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="px-5 pt-5 pb-5">
+      {/* ── Header ─── */}
+      <header className="px-5 pt-5 pb-5 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h1
-              className="text-[24px] font-bold"
+              className="text-[24px] font-bold leading-tight"
               style={{ letterSpacing: "-0.03em", color: "#F4F4F5" }}
             >
               Activity
             </h1>
             <p className="text-[13px] mt-0.5" style={{ color: "#52525B" }}>
-              {unreadCount > 0
-                ? `${unreadCount} new`
-                : "All caught up"}
+              {pendingCount > 0
+                ? `${pendingCount} action${pendingCount !== 1 ? "s" : ""} need${pendingCount === 1 ? "s" : ""} your attention`
+                : updateItems.length > 0
+                ? `${updateItems.length} update${updateItems.length !== 1 ? "s" : ""} from Scout`
+                : "You're all caught up"}
             </p>
           </div>
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllRead}
-              className="pressable text-[13px] font-semibold"
-              style={{ color: "#00C875" }}
+          {pendingCount > 0 && (
+            <div
+              className="px-3 py-1.5 rounded-full"
+              style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.22)" }}
             >
-              Mark all read
-            </button>
+              <span className="text-[13px] font-bold" style={{ color: "#EF4444" }}>{pendingCount}</span>
+            </div>
           )}
         </div>
       </header>
 
-      <main className="px-5 pb-2">
-        {alerts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: "rgba(255,255,255,0.04)" }}
-            >
-              <Bell size={22} style={{ color: "#3F3F46" }} strokeWidth={1.75} />
-            </div>
-            <p className="text-[14px] font-semibold" style={{ color: "#52525B" }}>
-              Nothing yet
-            </p>
-            <p className="text-[13px] mt-1 text-center leading-relaxed" style={{ color: "#3F3F46", maxWidth: 240 }}>
-              Scout will alert you when it finds new leads, spots a warm path, or thinks you should follow up.
-            </p>
-          </div>
-        )}
+      {/* ── Scrollable feed ─── */}
+      <main className="flex-1 overflow-y-auto px-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)" }}>
 
-        {unread.length > 0 && (
-          <div className="mb-6">
-            <p
-              className="text-[10px] font-semibold uppercase tracking-widest mb-3"
-              style={{ color: "#3F3F46" }}
-            >
-              New
+        {/* ── Zone 1: Needs Your Attention ─── */}
+        {needsActionItems.length > 0 && (
+          <section className="mb-6">
+            <p className="text-[10px] font-bold tracking-widest uppercase mb-3" style={{ color: "#EF4444" }}>
+              Needs your attention
             </p>
-            <div className="flex flex-col gap-2">
-              {unread.map((alert, i) => (
-                <AlertRow
-                  key={alert.id}
-                  alert={alert}
-                  index={i}
-                  onPress={() => {
-                    markAlertRead(alert.id);
-                    if (alert.opportunityId) {
-                      router.push(`/opportunities/${alert.opportunityId}`);
-                    }
-                  }}
-                />
+            <div className="flex flex-col gap-3">
+              {needsActionItems.map((item) => (
+                <ActivityCard key={item.id} item={item} onReview={setReviewOppId} />
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {read.length > 0 && (
-          <div className="mb-6">
-            <p
-              className="text-[10px] font-semibold uppercase tracking-widest mb-3"
-              style={{ color: "#3F3F46" }}
-            >
-              Earlier
+        {/* ── Zone 2: Updates ─── */}
+        {updateItems.length > 0 && (
+          <section className="mb-6">
+            <p className="text-[10px] font-bold tracking-widest uppercase mb-3" style={{ color: "#52525B" }}>
+              Updates
             </p>
-            <div className="flex flex-col gap-2">
-              {read.map((alert, i) => (
-                <AlertRow
-                  key={alert.id}
-                  alert={alert}
-                  index={i}
-                  onPress={() => {
-                    if (alert.opportunityId) {
-                      router.push(`/opportunities/${alert.opportunityId}`);
-                    }
-                  }}
-                />
+            <div className="flex flex-col gap-3">
+              {updateItems.map((item) => (
+                <ActivityCard key={item.id} item={item} onReview={setReviewOppId} />
               ))}
             </div>
-          </div>
+          </section>
+        )}
+
+        {/* ── Empty state ─── */}
+        {activeItems.length === 0 && <EmptyState />}
+
+        {/* ── Zone 3: Completed ─── */}
+        {completedItems.length > 0 && (
+          <section className="mb-4">
+            <button
+              onClick={() => setCompletedExpanded(!completedExpanded)}
+              className="pressable flex items-center gap-2 w-full mb-3 py-1"
+            >
+              <p className="text-[10px] font-bold tracking-widest uppercase" style={{ color: "#3F3F46" }}>
+                Completed · {completedItems.length}
+              </p>
+              {completedExpanded
+                ? <ChevronUp size={12} strokeWidth={2.5} style={{ color: "#3F3F46" }} />
+                : <ChevronDown size={12} strokeWidth={2.5} style={{ color: "#3F3F46" }} />
+              }
+            </button>
+            {completedExpanded && (
+              <div className="flex flex-col gap-2">
+                {completedItems.slice(0, 20).map((item) => (
+                  <ActivityCard key={item.id} item={item} onReview={setReviewOppId} />
+                ))}
+              </div>
+            )}
+          </section>
         )}
       </main>
 
-      <div className="pb-nav" />
       <BottomNav />
+      <FloatingChat triggerQuery={floatingQuery} />
+
+      {/* ── Review sheet ─── */}
+      {reviewOppId && (
+        <ReviewSheet oppId={reviewOppId} onClose={() => setReviewOppId(null)} />
+      )}
     </div>
   );
 }

@@ -211,6 +211,39 @@ export interface ScoutPanelData {
   };
 }
 
+// ── Activity types ─────────────────────────────────────────────────────────────
+
+export type ActivityItemType =
+  | "follow_up"      // nudge X days after a contact action
+  | "new_matches"    // Scout found new leads matching profile
+  | "hot_lead"       // hot/issued permit needs attention now
+  | "permit_issued"  // a specific permit flipped to Issued
+  | "scan_complete"  // Scout finished a scan run
+  | "outcome"        // prompt to log win/loss after contacted lead goes cold
+  | "like_signal";   // similar leads to ones the user liked
+
+export type ActivityItemStatus = "pending" | "done" | "dismissed" | "snoozed";
+export type ActivityItemPriority = "high" | "medium" | "low";
+export type ActivityOutcome = "won" | "lost";
+
+export interface ActivityItem {
+  id: string;
+  type: ActivityItemType;
+  status: ActivityItemStatus;
+  priority: ActivityItemPriority;
+  title: string;
+  body: string;
+  oppId?: string;          // linked opp — used by Review action
+  companyName?: string;    // for display without full opp lookup
+  phone?: string;          // pre-filled for Call action
+  email?: string;          // pre-filled for Email action
+  primaryAction: "call" | "email" | "review" | "outcome" | "browse";
+  createdAt: string;       // ISO
+  dueAt?: string;          // ISO — item hidden until this time (follow_up scheduling)
+  outcome?: ActivityOutcome;
+  snoozedUntil?: string;   // ISO — item hidden until snoozed period expires
+}
+
 // ── Conversation session types ─────────────────────────────────────────────────
 
 export interface ConversationSession {
