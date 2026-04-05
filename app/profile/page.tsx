@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import {
   MessageCircle,
@@ -505,11 +505,37 @@ function ScoutConfigBody() {
 export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const { connections, updateConnection, resetStore, whatsappPhone, setWhatsappPhone } = useAppStore();
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const [activeConn, setActiveConn] = useState<DataConnection | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
   const [hubspotStatus, setHubspotStatus] = useState<string | null>(null);
+
+  // Load real connection status from Supabase after sign-in
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    // Gmail
+    fetch("/api/contacts/sync/gmail")
+      .then((r) => r.json())
+      .then((data) => {
+        if ((data?.totalContacts ?? 0) > 0) {
+          updateConnection("conn-gmail", "connected", `${data.totalContacts} contacts`);
+        }
+      })
+      .catch(() => {});
+    // HubSpot
+    fetch("/api/contacts/sync/hubspot")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.connected) {
+          const label = data.totalContacts > 0 ? `${data.totalContacts} contacts` : "Connected";
+          updateConnection("conn-crm", "connected", label);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email]);
 
   // Handle return from HubSpot OAuth
   useEffect(() => {

@@ -34,6 +34,9 @@ interface BehavioralProfile {
   user_id: string;
   top_project_types: string[];
   top_cities: string[];
+  // Setup-phase columns (populated on first setup, before any behavioral data exists)
+  user_cities?: string[];
+  user_project_types?: string[];
   value_range_min?: number;
   value_range_max?: number;
   win_rate_by_type: Record<string, number>;
@@ -171,7 +174,7 @@ export async function POST() {
   // Fetch behavioral profile for this user
   const { data: profile, error: profileErr } = await db
     .from("behavioral_profiles")
-    .select("user_id, top_project_types, top_cities, value_range_min, value_range_max, win_rate_by_type, top_companies, total_wins")
+    .select("user_id, top_project_types, top_cities, user_cities, user_project_types, value_range_min, value_range_max, win_rate_by_type, top_companies, total_wins")
     .eq("user_id", userId)
     .single();
 
@@ -183,7 +186,11 @@ export async function POST() {
     });
   }
 
-  const cities = (profile.top_cities as string[]) ?? [];
+  // Fall back to setup-phase columns for new users who haven't won/lost yet
+  const cities: string[] = (profile.top_cities as string[] | null)?.length
+    ? (profile.top_cities as string[])
+    : (profile.user_cities as string[] | null) ?? [];
+
   if (!cities.length) {
     return NextResponse.json({
       found: 0,
@@ -211,9 +218,18 @@ export async function POST() {
     });
   }
 
+  // Merge setup-phase project types into profile for scoring (new users have no top_project_types yet)
+  const effectiveProfile: BehavioralProfile = {
+    ...(profile as BehavioralProfile),
+    top_cities: cities,
+    top_project_types: (profile.top_project_types as string[] | null)?.length
+      ? (profile.top_project_types as string[])
+      : (profile.user_project_types as string[] | null) ?? [],
+  };
+
   // Score and filter
   const scored = permits
-    .map((p) => ({ permit: p as PermitRow, score: scorePermit(p as PermitRow, profile as BehavioralProfile) }))
+    .map((p) => ({ permit: p as PermitRow, score: scorePermit(p as PermitRow, effectiveProfile) }))
     .filter(({ score }) => score.total >= 40)
     .sort((a, b) => b.score.total - a.score.total)
     .slice(0, 15);

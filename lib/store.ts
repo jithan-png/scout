@@ -2,12 +2,17 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Opportunity, Alert, AgentUpdate, DataConnection, SearchIntent, User, ScoutOpportunity, ScoutPanelData, ConversationSession, LikeSignals, ActivityItem, ActivityOutcome } from "./types";
 import {
-  MOCK_OPPORTUNITIES,
-  MOCK_ALERTS,
   MOCK_AGENT_UPDATES,
-  MOCK_DATA_CONNECTIONS,
-  MOCK_SEARCH_INTENTS,
 } from "./mock-data";
+
+// Clean default connection list — all disconnected until user explicitly connects
+const DEFAULT_CONNECTIONS: DataConnection[] = [
+  { id: "conn-whatsapp", name: "WhatsApp", type: "whatsapp", status: "disconnected" },
+  { id: "conn-gmail", name: "Gmail", type: "gmail", status: "disconnected" },
+  { id: "conn-contacts", name: "Phone Contacts", type: "contacts", status: "disconnected" },
+  { id: "conn-crm", name: "HubSpot", type: "crm", status: "disconnected" },
+  { id: "conn-excel", name: "Excel / CSV", type: "excel", status: "disconnected" },
+];
 
 // ── Setup wizard state ──────────────────────────────────────────────────────
 
@@ -282,7 +287,7 @@ export const useAppStore = create<AppStore>()(
         })),
 
       // ── Intent ───────────────────────────────────────────────────────────────
-      intents: MOCK_SEARCH_INTENTS,
+      intents: [],
       activeIntent: null,
 
       setActiveIntent: (intentText) => set({ activeIntent: intentText }),
@@ -389,8 +394,8 @@ export const useAppStore = create<AppStore>()(
         }),
 
       // ── Alerts ───────────────────────────────────────────────────────────────
-      alerts: MOCK_ALERTS,
-      unreadCount: 3, // seed activity items above include 2 high + 1 medium = 3 pending actions
+      alerts: [],
+      unreadCount: 0,
 
       markAlertRead: (id) =>
         set((s) => {
@@ -405,7 +410,7 @@ export const useAppStore = create<AppStore>()(
         })),
 
       // ── Data connections ──────────────────────────────────────────────────────
-      connections: MOCK_DATA_CONNECTIONS,
+      connections: DEFAULT_CONNECTIONS,
 
       updateConnection: (id, status, dataPoints) =>
         set((s) => ({
@@ -562,6 +567,7 @@ export const useAppStore = create<AppStore>()(
           sessions: [],
           activeSessionId: null,
           lastBriefingDate: null,
+          connections: DEFAULT_CONNECTIONS,
           contactedOpportunityIds: new Set(),
           dismissedOpportunityIds: new Set(),
           likedOpportunityIds: new Set(),
@@ -572,6 +578,7 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: "buildmapper-store",
+      version: 2, // bumped to clear stale mock data from localStorage
       storage: createJSONStorage(() => localStorage),
       // Only persist what should survive a page refresh
       partialize: (state) => ({
