@@ -585,7 +585,7 @@ export const MOCK_DATA_CONNECTIONS: DataConnection[] = [
   },
   {
     id: "conn-crm",
-    name: "CRM",
+    name: "HubSpot",
     type: "crm",
     status: "disconnected",
   },

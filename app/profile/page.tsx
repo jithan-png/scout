@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { useState, useRef, useEffect } from "react";
+import { signOut } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import {
   MessageCircle,
   Mail,
@@ -62,9 +63,9 @@ const CONNECTION_DETAIL: Record<DataConnection["type"], { what: string; how: str
     cta: "Set up in wizard",
   },
   crm: {
-    what: "Sync BuildMapper opportunities back into your existing CRM so your pipeline stays in one place.",
-    how: "Currently supports manual CSV export. Native CRM integrations are coming soon.",
-    cta: "Coming soon",
+    what: "Connect your HubSpot CRM so Scout knows which companies you've already sold to — those deals boost your relationship score and surface the hottest re-engagement opportunities.",
+    how: "A read-only OAuth connection. Scout reads your contacts and deals, never modifies your CRM data.",
+    cta: "Connect HubSpot",
   },
   excel: {
     what: "Import your contacts from LinkedIn, HubSpot, Outlook, or any spreadsheet to unlock warm paths — Scout will cross-reference them against every permit and tender it finds.",
@@ -89,7 +90,6 @@ function ConnectModal({
   const Icon = CONNECTION_ICONS[conn.type];
   const accent = CONNECTION_ACCENT[conn.type];
   const detail = CONNECTION_DETAIL[conn.type];
-  const isComing = detail.cta === "Coming soon";
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -220,7 +220,11 @@ function ConnectModal({
           {/* CTA */}
           <button
             onClick={async () => {
-              if (isComing) { onClose(); return; }
+              if (conn.type === "crm") {
+                // HubSpot OAuth — full-page redirect
+                window.location.href = "/api/integrations/hubspot/connect";
+                return;
+              }
               if (conn.type === "gmail") {
                 setSyncing(true);
                 setSyncResult(null);
@@ -242,7 +246,6 @@ function ConnectModal({
                   setSyncing(false);
                 }
               } else if (conn.type === "excel") {
-                // Trigger file picker
                 fileInputRef.current?.click();
               } else {
                 onSetup();
@@ -250,22 +253,14 @@ function ConnectModal({
             }}
             disabled={syncing}
             className="pressable w-full py-4 rounded-2xl text-[15px] font-semibold"
-            style={
-              isComing
-                ? {
-                    background: "rgba(255,255,255,0.05)",
-                    color: "#52525B",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                  }
-                : {
-                    background: `linear-gradient(135deg, ${accent} 0%, ${accent}CC 100%)`,
-                    color: "#fff",
-                    boxShadow: `0 0 20px ${accent}33`,
-                    opacity: syncing ? 0.7 : 1,
-                  }
-            }
+            style={{
+              background: `linear-gradient(135deg, ${accent} 0%, ${accent}CC 100%)`,
+              color: "#fff",
+              boxShadow: `0 0 20px ${accent}33`,
+              opacity: syncing ? 0.7 : 1,
+            }}
           >
-            {syncing ? "Importing..." : detail.cta}
+            {syncing ? "Syncing..." : detail.cta}
           </button>
         </div>
       </div>
@@ -509,10 +504,48 @@ function ScoutConfigBody() {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { connections, updateConnection, resetStore, whatsappPhone, setWhatsappPhone } = useAppStore();
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const [activeConn, setActiveConn] = useState<DataConnection | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
+  const [hubspotStatus, setHubspotStatus] = useState<string | null>(null);
+
+  // Handle return from HubSpot OAuth
+  useEffect(() => {
+    const hs = searchParams.get("hubspot");
+    if (hs === "ok") {
+      setHubspotStatus("syncing");
+      // Auto-trigger contact sync
+      fetch("/api/contacts/sync/hubspot", { method: "POST" })
+        .then((r) => r.json())
+        .then((data) => {
+          const msg = data.message ?? `Synced ${data.synced ?? 0} contacts.`;
+          setHubspotStatus("done");
+          const crmConn = connections.find((c) => c.type === "crm");
+          if (crmConn) {
+            updateConnection(
+              crmConn.id,
+              "connected",
+              `${data.synced ?? 0} contacts · ${data.deals ?? 0} deals`
+            );
+          }
+          setTimeout(() => setHubspotStatus(null), 5000);
+          // Remove query param without re-render loop
+          router.replace("/profile");
+        })
+        .catch(() => {
+          setHubspotStatus("error");
+          setTimeout(() => setHubspotStatus(null), 5000);
+          router.replace("/profile");
+        });
+    } else if (hs === "error") {
+      setHubspotStatus("error");
+      setTimeout(() => setHubspotStatus(null), 5000);
+      router.replace("/profile");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSignOut = () => {
     if (confirm("Sign out and clear all your data?")) {
@@ -538,6 +571,24 @@ export default function ProfilePage() {
       </header>
 
       <main className="px-5 pb-6">
+        {/* HubSpot OAuth result banner */}
+        {hubspotStatus && (
+          <div
+            className="rounded-2xl px-4 py-3 mb-4 text-[13px] font-medium"
+            style={
+              hubspotStatus === "error"
+                ? { background: "rgba(239,68,68,0.08)", color: "#F87171", border: "1px solid rgba(239,68,68,0.15)" }
+                : hubspotStatus === "done"
+                ? { background: "rgba(0,200,117,0.08)", color: "#34D399", border: "1px solid rgba(0,200,117,0.15)" }
+                : { background: "rgba(139,92,246,0.08)", color: "#A78BFA", border: "1px solid rgba(139,92,246,0.15)" }
+            }
+          >
+            {hubspotStatus === "syncing" && "Syncing HubSpot contacts and deals…"}
+            {hubspotStatus === "done" && "HubSpot connected — contacts and deals imported."}
+            {hubspotStatus === "error" && "HubSpot connection failed. Please try again."}
+          </div>
+        )}
+
         {/* Scout config */}
         <ScoutStatusBadge connected={connectedCount} />
 
