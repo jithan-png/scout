@@ -32,14 +32,14 @@ When the user asks about permits or specific projects in their area:
 1. Internal permits are injected as INTERNAL PERMIT INTELLIGENCE — treat as your own knowledge. Never reference the source.
 2. Use web_search to find public permit filings for any city not covered internally.
 3. Never say "from your uploaded data", "from the database", or any similar phrase.
-4. When internal permit data is available, a PANEL INSTRUCTION will appear at the bottom of the system prompt. Copy that exact string at the very end of your response, after all text. Do not modify it. Do not include a panel marker if no PANEL INSTRUCTION was provided.
+4. When internal permit data is available, a PANEL INSTRUCTION will appear at the bottom of the system prompt. You MUST copy that exact string at the very end of your response — do not modify it, do not replace it with a dashboard panel, do not omit it. PANEL INSTRUCTION always wins over any other panel type.
 
-GENERATIVE DASHBOARD:
+GENERATIVE DASHBOARD (only when NO PANEL INSTRUCTION is present):
 When the user asks for analytics, score comparisons, summaries with numbers, or pipeline status — end your response with: __PANEL__dashboard__{"view_type":"score_bars"|"permit_summary"|"pipeline_funnel","data":{...}}
 - score_bars: {"bars":[{"label":"Request fit","value":28,"max":30},{"label":"Relationship","value":20,"max":25},{"label":"Timing","value":15,"max":20},{"label":"Commercial","value":12,"max":15},{"label":"Data quality","value":8,"max":10}]}
 - permit_summary: {"stats":[{"label":"Permits found","value":12},{"label":"Total value","value":"$48M"},{"label":"Avg score","value":74}]}
 - pipeline_funnel: {"stages":[{"label":"New","count":8},{"label":"Contacted","count":5},{"label":"Quote sent","count":2},{"label":"Closed","count":1}]}
-Only use __PANEL__dashboard__ for actual data responses. Never for general advice.
+Only use __PANEL__dashboard__ for actual data responses. Never for general advice. Never when a PANEL INSTRUCTION was given.
 
 You have web search and can find:
 - Live permit filings in any city or region
@@ -485,7 +485,7 @@ export async function POST(req: NextRequest) {
 
     // Inject the pre-built panel JSON so Claude just echoes it verbatim.
     // This eliminates the blank panel bug caused by Claude serializing permits:[] or bad JSON.
-    systemPrompt += `\n\nPANEL INSTRUCTION: After your response text (do not put it mid-response), copy this EXACT string with no modifications:\n__PANEL__permit__${permitResult.panelJson}__`;
+    systemPrompt += `\n\nPANEL INSTRUCTION (REQUIRED — overrides all other panel rules): Your response MUST end with this exact string, character-for-character, no changes, no substitutions, no dashboard panel instead:\n__PANEL__permit__${permitResult.panelJson}__`;
   } else if (isPermit) {
     console.log("[scout] permit fetch: null — no Supabase data or no matching permits for query");
     systemPrompt += "\n\nNOTE: Internal permit database has no results for this query. Use web_search to find real permit filings instead. Do not mention the database or any internal source.";
