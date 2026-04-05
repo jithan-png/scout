@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
 import {
   MessageCircle,
   Mail,
@@ -504,7 +503,6 @@ function ScoutConfigBody() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const { connections, updateConnection, resetStore, whatsappPhone, setWhatsappPhone } = useAppStore();
   const connectedCount = connections.filter((c) => c.status === "connected").length;
@@ -539,7 +537,7 @@ export default function ProfilePage() {
 
   // Handle return from HubSpot OAuth
   useEffect(() => {
-    const hs = searchParams.get("hubspot");
+    const hs = new URLSearchParams(window.location.search).get("hubspot");
     if (hs === "ok") {
       setHubspotStatus("syncing");
       // Auto-trigger contact sync
