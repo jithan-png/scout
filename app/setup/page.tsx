@@ -202,6 +202,16 @@ function SetupPageInner() {
     } else {
       const wasAlreadyCompleted = setup.completed;
       completeSetup();
+      // Persist setup to Supabase so it survives across devices/browsers
+      fetch("/api/profile/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trades: setup.whatISell,
+          cities: setup.whereIOperate,
+          projectTypes: setup.projectTypes,
+        }),
+      }).catch(() => {}); // fire-and-forget
       setActiveIntent(
         `${setup.whatISell.join(", ")} in ${setup.whereIOperate.join(", ")}${setup.projectTypes.length > 0 ? ` — ${setup.projectTypes.join(", ")}` : ""}`
       );

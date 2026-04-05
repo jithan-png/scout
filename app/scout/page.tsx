@@ -198,6 +198,7 @@ function ScoutPageInner() {
   const { data: session } = useSession();
   const {
     setup,
+    hydrateSetup,
     chatMessages,
     addChatMessage,
     clearChat,
@@ -213,6 +214,21 @@ function ScoutPageInner() {
     pendingScoutMessage,
     setPendingScoutMessage,
   } = useAppStore();
+
+  // Restore setup from Supabase if localStorage is empty (new device / cleared storage)
+  useEffect(() => {
+    if (!setup.completed && session?.user?.email) {
+      fetch("/api/profile/setup")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.setup_completed) {
+            hydrateSetup(data.user_trades ?? [], data.user_cities ?? [], data.user_project_types ?? []);
+          }
+        })
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email]);
 
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);

@@ -102,6 +102,7 @@ export default function OpportunitiesPage() {
     activeIntent,
     coverageNote,
     setup,
+    hydrateSetup,
     dismissedOpportunityIds,
     dismissOpportunity,
     undoDismissOpportunity,
@@ -114,6 +115,20 @@ export default function OpportunitiesPage() {
   // ── Load real opportunities from Supabase on mount ───────────────────────
   useEffect(() => {
     if (!session?.user?.email) return;
+
+    // If setup isn't complete locally, try to restore from Supabase
+    // (covers new device / cleared localStorage scenarios)
+    if (!setup.completed) {
+      fetch("/api/profile/setup")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.setup_completed) {
+            hydrateSetup(data.user_trades ?? [], data.user_cities ?? [], data.user_project_types ?? []);
+          }
+        })
+        .catch(() => {});
+    }
+
     setOpportunities([]); // clear mock data
     fetch("/api/opportunities")
       .then((r) => r.json())

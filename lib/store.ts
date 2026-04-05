@@ -57,6 +57,7 @@ interface AppStore {
   setup: SetupState;
   setSetupStep: (step: SetupStep) => void;
   completeSetup: () => void;
+  hydrateSetup: (trades: string[], cities: string[], projectTypes: string[]) => void;
   toggleWhatISell: (item: string) => void;
   toggleWhereIOperate: (city: string) => void;
   toggleProjectType: (type: string) => void;
@@ -192,6 +193,28 @@ export const useAppStore = create<AppStore>()(
             emailConnected: setup.emailConnected,
           },
         });
+      },
+
+      // Hydrate setup from Supabase (called on mount when localStorage is empty)
+      hydrateSetup: (trades, cities, projectTypes) => {
+        set((s) => ({
+          setup: {
+            ...s.setup,
+            whatISell: trades,
+            whereIOperate: cities,
+            projectTypes,
+            completed: true,
+          },
+          user: {
+            id: "user-1",
+            whatISell: trades,
+            whereIOperate: cities,
+            projectTypes,
+            whatsappConnected: s.setup.whatsappConnected,
+            contactsConnected: s.setup.contactsConnected,
+            emailConnected: s.setup.emailConnected,
+          },
+        }));
       },
 
       toggleWhatISell: (item) =>
