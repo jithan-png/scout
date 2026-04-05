@@ -3,6 +3,7 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   providers: [
     // Test mode — dev only, bypasses real OAuth
     ...(process.env.NODE_ENV !== "production"
@@ -20,10 +21,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : []),
     Google({
-      // Basic scopes only for sign-in — contacts.readonly is requested
-      // separately in /api/contacts/sync/gmail when the user explicitly
-      // connects Gmail. Keeping it here blocks sign-in for Workspace accounts
-      // and unverified OAuth apps (Google treats it as a sensitive scope).
+      // Explicitly read credentials so both GOOGLE_CLIENT_ID and AUTH_GOOGLE_ID
+      // naming conventions work — NextAuth v5 auto-reads AUTH_GOOGLE_ID only.
+      clientId: process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET,
+      // Basic scopes only — contacts.readonly blocks Workspace accounts.
+      // Gmail contacts sync requests it separately on the profile page.
       authorization: {
         params: {
           scope: ["openid", "profile", "email"].join(" "),
