@@ -1,4 +1,14 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron/scout-scan",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/email-digest",
+      "schedule": "0 15 1 * *"
+    }
+  ],
   "experimentalServices": {
     "frontend": {
       "routePrefix": "/",

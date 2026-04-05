@@ -555,7 +555,14 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between">
                 <p className="text-[13px] font-medium" style={{ color: "#71717A" }}>{whatsappPhone}</p>
                 <button
-                  onClick={() => setWhatsappPhone(null)}
+                  onClick={() => {
+                    setWhatsappPhone(null);
+                    fetch("/api/profile/preferences", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ notification_phone: null }),
+                    }).catch(() => {});
+                  }}
                   className="pressable text-[12px] font-semibold"
                   style={{ color: "#52525B" }}
                 >
@@ -577,7 +584,19 @@ export default function ProfilePage() {
                   }}
                 />
                 <button
-                  onClick={() => { if (phoneInput.trim()) { setWhatsappPhone(phoneInput.trim()); setPhoneInput(""); } }}
+                  onClick={() => {
+                    const phone = phoneInput.trim();
+                    if (phone) {
+                      setWhatsappPhone(phone);
+                      setPhoneInput("");
+                      // Persist to Supabase so the cron can send notifications
+                      fetch("/api/profile/preferences", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ notification_phone: phone }),
+                      }).catch(() => {});
+                    }
+                  }}
                   disabled={!phoneInput.trim()}
                   className="pressable px-4 py-2.5 rounded-xl text-[13px] font-semibold"
                   style={

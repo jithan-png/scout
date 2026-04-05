@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json([], { status: 200 });
 
   const showDismissed = req.nextUrl.searchParams.get("dismissed") === "true";
+  const sourceFilter = req.nextUrl.searchParams.get("source"); // e.g. "cron_scan"
 
   let q = supabase
     .from("scout_opportunities")
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
     .limit(200);
 
   if (!showDismissed) q = q.eq("dismissed", false);
+  if (sourceFilter) q = q.eq("source", sourceFilter);
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

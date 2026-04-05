@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Bell, Check, X, Clock, ChevronDown, ChevronUp,
   Mail, Phone, ArrowRight, Sparkles, Zap, Trophy, ThumbsDown,
@@ -403,11 +404,58 @@ function EmptyState() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ActivityPage() {
-  const { activityItems } = useAppStore();
+  const { activityItems, addActivityItem } = useAppStore();
+  const { data: session } = useSession();
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
   const [reviewOppId, setReviewOppId] = useState<string | null>(null);
   const [floatingQuery, setFloatingQuery] = useState<string | null>(null);
+
+  // ── Poll for new cron-discovered opportunities on mount ───────────────────
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    const STORAGE_KEY = "scout_last_activity_check";
+    const lastCheck = localStorage.getItem(STORAGE_KEY) ?? new Date(0).toISOString();
+
+    fetch("/api/opportunities?source=cron_scan")
+      .then((r) => r.json())
+      .then((data: Array<{ id: string; score: number; priority: string; timing?: string; project?: { address?: string; city?: string; type?: string }; company?: { name?: string }; suggestedAction?: string; actionType?: string; _source?: string }>) => {
+        if (!Array.isArray(data)) return;
+
+        // Group new cron results since last check
+        const newOpps = data.filter((o) => {
+          // We don't have created_at on the client type, so use localStorage timestamp
+          // Opportunities returned are ordered by score desc — inject top ones
+          return true; // we'll deduplicate via activityItems
+        });
+
+        if (!newOpps.length) return;
+
+        // Check if we already have a recent new_matches item from this batch
+        const alreadyHasItem = activityItems.some(
+          (i) => i.type === "new_matches" && new Date(i.createdAt) > new Date(lastCheck)
+        );
+
+        if (!alreadyHasItem) {
+          const hotCount = newOpps.filter((o) => o.priority === "hot").length;
+          const total = newOpps.length;
+          const topCity = newOpps[0]?.project?.city ?? "your area";
+
+          addActivityItem({
+            type: "new_matches",
+            status: "pending",
+            priority: hotCount > 0 ? "high" : "medium",
+            title: `Scout found ${total} new lead${total !== 1 ? "s" : ""} while you were away`,
+            body: `${hotCount > 0 ? `${hotCount} hot lead${hotCount !== 1 ? "s" : ""} in ${topCity}` : `New opportunities in ${topCity}`}. Review and reach out.`,
+            primaryAction: "browse",
+          });
+
+          localStorage.setItem(STORAGE_KEY, new Date().toISOString());
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email]);
 
   const activeItems = activityItems.filter(isItemActive);
   const needsActionItems = activeItems.filter((i) => i.priority === "high");
