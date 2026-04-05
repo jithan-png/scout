@@ -20,18 +20,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : []),
     Google({
-      // Request contacts.readonly so we can sync Google contacts for
-      // relationship intelligence. Users see the permission on sign-in.
+      // Basic scopes only for sign-in — contacts.readonly is requested
+      // separately in /api/contacts/sync/gmail when the user explicitly
+      // connects Gmail. Keeping it here blocks sign-in for Workspace accounts
+      // and unverified OAuth apps (Google treats it as a sensitive scope).
       authorization: {
         params: {
-          scope: [
-            "openid",
-            "profile",
-            "email",
-            "https://www.googleapis.com/auth/contacts.readonly",
-          ].join(" "),
-          access_type: "offline", // get refresh_token for background syncs
-          prompt: "consent",      // force consent screen so refresh_token is issued
+          scope: ["openid", "profile", "email"].join(" "),
+          access_type: "offline",
+          prompt: "consent",
         },
       },
     }),
