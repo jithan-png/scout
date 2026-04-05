@@ -93,6 +93,7 @@ const PERMIT_KEYWORDS = [
   "show me", "find me", "what's new", "whats new", "any new",
   "hot", "active", "townhouse", "townhome", "condo", "apartment", "commercial",
   "storey", "story", "stories", "storeys", "highrise", "lowrise",
+  "plex", "unit", "duplex", "triplex", "fourplex", "sixplex", "multiplex",
 ];
 
 function isPermitRelated(message: string): boolean {
@@ -100,50 +101,125 @@ function isPermitRelated(message: string): boolean {
   return PERMIT_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-// Synonym groups — any user term maps to all variants we search for
-const TYPE_SYNONYMS: Record<string, string[]> = {
-  townhouse:      ["townhome", "townhouse", "row home", "rowhouse", "town home"],
-  townhome:       ["townhome", "townhouse", "row home", "rowhouse", "town home"],
-  rowhouse:       ["townhome", "townhouse", "row home", "rowhouse"],
-  "row home":     ["townhome", "townhouse", "row home", "rowhouse"],
-  condo:          ["condo", "condominium"],
-  condominium:    ["condo", "condominium"],
-  apartment:      ["apartment", "condo", "residential"],
-  highrise:       ["highrise", "high-rise", "high rise", "tower"],
-  "high rise":    ["highrise", "high-rise", "high rise", "tower"],
-  lowrise:        ["lowrise", "low-rise", "low rise"],
-  "low rise":     ["lowrise", "low-rise", "low rise"],
-  commercial:     ["commercial", "retail", "office"],
-  retail:         ["retail", "commercial"],
-  office:         ["office", "commercial"],
-  industrial:     ["industrial", "warehouse", "distribution"],
-  warehouse:      ["warehouse", "industrial", "distribution"],
-  duplex:         ["duplex", "semi-detached"],
-  "single family":["single family", "sfh", "detached"],
-  sfh:            ["single family", "sfh", "detached"],
-  detached:       ["single family", "sfh", "detached"],
-  "mixed use":    ["mixed use", "mixed-use"],
-  school:         ["school", "education", "institutional"],
-  hospital:       ["hospital", "medical", "healthcare"],
+// ── Semantic search dictionaries ─────────────────────────────────────────────
+
+// Maps unit count → all written-form variants
+const UNIT_NAMES: Record<number, string[]> = {
+  2:  ["two", "dual", "double"],
+  3:  ["three", "tri"],
+  4:  ["four", "quad", "quadru"],
+  5:  ["five"],
+  6:  ["six"],
+  7:  ["seven"],
+  8:  ["eight"],
+  9:  ["nine"],
+  10: ["ten"],
+  12: ["twelve"],
 };
 
-// Known cities we serve — used to extract city mentions from message text
+// Named plex terms → count (check these before numeric match)
+const NAMED_PLEX: [RegExp, number][] = [
+  [/\bduplex\b/,       2], [/\btwo[- ]?plex\b/,     2], [/\b2[- ]?plex\b/,    2],
+  [/\btriplex\b/,      3], [/\btri[- ]?plex\b/,      3], [/\b3[- ]?plex\b/,    3], [/\bthree[- ]?plex\b/, 3],
+  [/\bfourplex\b/,     4], [/\bfour[- ]?plex\b/,     4], [/\b4[- ]?plex\b/,    4], [/\bquadruplex\b/,    4], [/\bquad[- ]?plex\b/, 4],
+  [/\bfiveplex\b/,     5], [/\bfive[- ]?plex\b/,     5], [/\b5[- ]?plex\b/,    5],
+  [/\bsixplex\b/,      6], [/\bsix[- ]?plex\b/,      6], [/\b6[- ]?plex\b/,    6],
+  [/\bsevenplex\b/,    7], [/\bseven[- ]?plex\b/,    7], [/\b7[- ]?plex\b/,    7],
+  [/\beightplex\b/,    8], [/\beight[- ]?plex\b/,    8], [/\b8[- ]?plex\b/,    8],
+  [/\bmultiplex\b/,    4], // generic — search 4+
+];
+
+// Given a unit count, produce every synonym we should search for
+function expandUnitCount(count: number): string[] {
+  const terms: Set<string> = new Set([
+    `${count} unit`, `${count}-unit`, `${count}unit`,
+    `${count} plex`, `${count}-plex`, `${count}plex`,
+    `${count} suite`, `${count}-suite`,
+  ]);
+  for (const name of (UNIT_NAMES[count] ?? [])) {
+    terms.add(`${name}plex`);
+    terms.add(`${name}-plex`);
+    terms.add(`${name} plex`);
+    terms.add(`${name} unit`);
+  }
+  return [...terms];
+}
+
+// Project type synonym groups (trigger word → all search variants)
+const TYPE_SYNONYMS: Record<string, string[]> = {
+  // Townhouse cluster
+  "townhouse":       ["townhome", "townhouse", "row home", "rowhouse", "town home", "stacked townhouse"],
+  "townhome":        ["townhome", "townhouse", "row home", "rowhouse", "town home", "stacked townhouse"],
+  "rowhouse":        ["townhome", "townhouse", "row home", "rowhouse"],
+  "row home":        ["townhome", "townhouse", "row home", "rowhouse"],
+  "stacked":         ["stacked townhouse", "stacked townhome", "stacked"],
+  // Condo / apartment / strata
+  "condo":           ["condo", "condominium", "strata"],
+  "condominium":     ["condo", "condominium", "strata"],
+  "strata":          ["condo", "condominium", "strata"],
+  "apartment":       ["apartment", "multi-family", "multifamily", "rental", "residential"],
+  "rental":          ["rental", "purpose built rental", "pbr", "apartment", "multi-family"],
+  "multi-family":    ["multi-family", "multifamily", "apartment", "residential"],
+  "multifamily":     ["multi-family", "multifamily", "apartment", "residential"],
+  // Height descriptors
+  "highrise":        ["highrise", "high-rise", "high rise", "tower", "high-rise residential"],
+  "high rise":       ["highrise", "high-rise", "high rise", "tower"],
+  "lowrise":         ["lowrise", "low-rise", "low rise", "garden", "walkup", "walk-up"],
+  "low rise":        ["lowrise", "low-rise", "low rise", "walkup"],
+  "midrise":         ["midrise", "mid-rise", "mid rise"],
+  "mid rise":        ["midrise", "mid-rise", "mid rise"],
+  "tower":           ["tower", "highrise", "high-rise"],
+  // Commercial
+  "commercial":      ["commercial", "retail", "office", "business"],
+  "retail":          ["retail", "commercial", "storefront", "strip mall"],
+  "office":          ["office", "commercial", "professional", "business park"],
+  // Industrial
+  "industrial":      ["industrial", "warehouse", "distribution", "light industrial", "manufacturing"],
+  "warehouse":       ["warehouse", "industrial", "distribution", "storage", "logistics"],
+  "distribution":    ["distribution", "warehouse", "industrial", "logistics", "fulfillment"],
+  "manufacturing":   ["manufacturing", "industrial", "production", "fabrication"],
+  // Single family
+  "single family":   ["single family", "sfh", "detached", "house", "single detached"],
+  "sfh":             ["single family", "sfh", "detached", "house"],
+  "detached":        ["single family", "sfh", "detached", "house", "single detached"],
+  "house":           ["house", "single family", "detached", "sfh", "single detached"],
+  // Duplex (type synonym — unit count handled separately)
+  "duplex":          ["duplex", "semi-detached", "two-family", "2-unit"],
+  "semi-detached":   ["semi-detached", "duplex", "two-family"],
+  // Mixed use
+  "mixed use":       ["mixed use", "mixed-use", "live work", "live-work"],
+  "mixed-use":       ["mixed use", "mixed-use", "live work"],
+  // Laneway / ADU
+  "laneway":         ["laneway", "laneway house", "coach house", "carriage house", "garden suite", "adu"],
+  "garden suite":    ["garden suite", "laneway", "accessory dwelling", "adu", "secondary suite"],
+  "secondary suite": ["secondary suite", "basement suite", "in-law suite", "accessory dwelling"],
+  "adu":             ["adu", "accessory dwelling", "garden suite", "laneway", "secondary suite"],
+  // Institutional
+  "school":          ["school", "education", "educational", "institutional", "learning centre"],
+  "hospital":        ["hospital", "medical", "healthcare", "clinic", "health centre"],
+  "hotel":           ["hotel", "motel", "hospitality", "accommodation"],
+  // Other
+  "seniors":         ["seniors", "assisted living", "care home", "retirement", "supportive housing"],
+  "affordable":      ["affordable", "social housing", "below market", "non-market"],
+};
+
+// Known cities — multi-word entries FIRST to prevent partial matches
 const KNOWN_CITIES = [
+  "north vancouver", "west vancouver", "new westminster", "port moody", "port coquitlam",
+  "maple ridge", "white rock", "pitt meadows", "fort langley",
   "vancouver", "surrey", "burnaby", "richmond", "abbotsford", "kelowna",
-  "langley", "delta", "north vancouver", "west vancouver", "coquitlam",
-  "new westminster", "maple ridge", "white rock", "port moody",
+  "langley", "delta", "coquitlam", "chilliwack", "mission", "hope",
   "calgary", "edmonton", "toronto", "ottawa", "hamilton", "winnipeg",
+  "victoria", "nanaimo", "kamloops", "prince george",
   "seattle", "houston", "dallas", "austin", "phoenix", "denver",
   "chicago", "miami", "orlando", "los angeles", "san francisco",
   "new york", "san jose", "san antonio",
 ];
 
-const STOP_WORDS = new Set([
-  "show", "find", "tell", "what", "with", "that", "this", "have",
-  "from", "your", "their", "permits", "permit", "project", "projects",
-  "leads", "lead", "hot", "active", "recent", "new", "latest",
-  "area", "city", "near", "around", "about", "looking", "need",
-]);
+// Capitalize a city string to match typical DB casing
+function toTitleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 async function fetchPermitContext(message: string, profileCities: string[]): Promise<string | null> {
   const db = getSupabase();
@@ -152,92 +228,105 @@ async function fetchPermitContext(message: string, profileCities: string[]): Pro
   try {
     const lower = message.toLowerCase();
 
-    // 1. City filter — extract from message first, fall back to profile
-    const mentionedCities = KNOWN_CITIES.filter((c) => lower.includes(c));
-    const cityFilter = mentionedCities.length > 0
-      ? mentionedCities
-      : profileCities.map((c) => c.toLowerCase());
+    // ── 1. City: extract from message (exact), fall back to profile ──────────
+    // Check multi-word cities first to avoid "vancouver" matching "north vancouver"
+    const mentionedCities: string[] = [];
+    for (const city of KNOWN_CITIES) {
+      if (lower.includes(city) && !mentionedCities.some((c) => c.includes(city))) {
+        mentionedCities.push(toTitleCase(city));
+      }
+    }
+    const cityFilter = mentionedCities.length > 0 ? mentionedCities : profileCities;
 
-    // 2. Synonym-expanded project type terms
+    // ── 2. Unit count expansion ───────────────────────────────────────────────
+    const unitTerms: string[] = [];
+    // Named plex (regex-based, most specific)
+    for (const [rx, count] of NAMED_PLEX) {
+      if (rx.test(lower)) { unitTerms.push(...expandUnitCount(count)); break; }
+    }
+    // Numeric "N unit" / "N plex" / "N-plex" not caught above
+    if (unitTerms.length === 0) {
+      const numMatch = lower.match(/\b(\d+)\s*[-]?\s*(unit|plex|suite)s?\b/);
+      if (numMatch) unitTerms.push(...expandUnitCount(parseInt(numMatch[1])));
+    }
+    // Range: "3 to 6 unit" → expand all counts in range
+    const unitRangeMatch = lower.match(/\b(\d+)\s*[-–to]+\s*(\d+)\s*(unit|plex|suite)/);
+    if (unitRangeMatch) {
+      const min = parseInt(unitRangeMatch[1]);
+      const max = parseInt(unitRangeMatch[2]);
+      for (let n = min; n <= max && n <= 20; n++) unitTerms.push(...expandUnitCount(n));
+    }
+
+    // ── 3. Project type synonyms ──────────────────────────────────────────────
     const typeTerms = new Set<string>();
     for (const [key, variants] of Object.entries(TYPE_SYNONYMS)) {
       if (lower.includes(key)) variants.forEach((v) => typeTerms.add(v));
     }
-    // Also pass through any bare type words not in synonym map
-    const rawWords = lower.replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
-      .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
-    rawWords.forEach((w) => { if (!Object.keys(TYPE_SYNONYMS).includes(w)) typeTerms.add(w); });
 
-    // 3. Storey range extraction — "3-6 storey", "3 to 6 story"
+    // ── 4. Storey range ───────────────────────────────────────────────────────
     const storeyTerms: string[] = [];
-    const storeyMatch = lower.match(/(\d+)\s*[-–to]+\s*(\d+)\s*stor/);
-    if (storeyMatch) {
-      const min = parseInt(storeyMatch[1]);
-      const max = parseInt(storeyMatch[2]);
-      for (let s = min; s <= max && s <= 25; s++) {
-        storeyTerms.push(`${s} stor`);
-        storeyTerms.push(`${s}-stor`);
-        storeyTerms.push(`${s} story`);
-      }
-    }
-    // Single storey mention — "5 storey"
-    const singleStorey = lower.match(/(\d+)\s*stor/);
-    if (singleStorey && !storeyMatch) {
-      const s = parseInt(singleStorey[1]);
-      storeyTerms.push(`${s} stor`, `${s}-stor`, `${s} story`);
-    }
-
-    // 4. Build query
-    let q = db
-      .from("permits")
-      .select("address, city, state, project_type, value, builder_company, builder_phone, builder_email, issued_date, status, description, additional_info")
-      .order("issued_date", { ascending: false })
-      .limit(25);
-
-    // City filter — always apply if we have cities
-    if (cityFilter.length > 0) {
-      const cityOr = cityFilter.map((c) => `city.ilike.%${c}%`).join(",");
-      q = q.or(cityOr);
-    }
-
-    // Project type + description keyword filter
-    const keywordClauses: string[] = [];
-    typeTerms.forEach((t) => {
-      keywordClauses.push(`project_type.ilike.%${t}%`);
-      keywordClauses.push(`description.ilike.%${t}%`);
-    });
-    storeyTerms.forEach((t) => {
-      keywordClauses.push(`description.ilike.%${t}%`);
-      keywordClauses.push(`additional_info.ilike.%${t}%`);
-    });
-
-    // If we have keyword clauses, apply them (this ANDs with city filter above)
-    // Since Supabase chains .or() as AND, we need a separate query for the keyword OR
-    let data, error;
-    if (keywordClauses.length > 0) {
-      // Run two queries: one with keyword filter (precise), one without (broad city fallback)
-      const { data: precise, error: e1 } = await q.or(keywordClauses.join(","));
-      if (!e1 && precise && precise.length > 0) {
-        data = precise;
-        error = e1;
-      } else {
-        // Fall back: city only, no keyword filter
-        let fallbackQ = db
-          .from("permits")
-          .select("address, city, state, project_type, value, builder_company, builder_phone, builder_email, issued_date, status, description, additional_info")
-          .order("issued_date", { ascending: false })
-          .limit(20);
-        if (cityFilter.length > 0) {
-          fallbackQ = fallbackQ.or(cityFilter.map((c) => `city.ilike.%${c}%`).join(","));
-        }
-        const { data: fallback, error: e2 } = await fallbackQ;
-        data = fallback;
-        error = e2;
+    const storeyRange = lower.match(/\b(\d+)\s*[-–to]+\s*(\d+)\s*stor/);
+    if (storeyRange) {
+      for (let s = parseInt(storeyRange[1]); s <= parseInt(storeyRange[2]) && s <= 30; s++) {
+        storeyTerms.push(`${s} stor`, `${s}-stor`, `${s} story`);
       }
     } else {
+      const singleSt = lower.match(/\b(\d+)\s*[-]?\s*stor/);
+      if (singleSt) {
+        const s = parseInt(singleSt[1]);
+        storeyTerms.push(`${s} stor`, `${s}-stor`, `${s} story`);
+      }
+    }
+
+    // ── 5. Build Supabase query ───────────────────────────────────────────────
+    const SELECT = "address, city, state, project_type, value, builder_company, builder_phone, builder_email, issued_date, status, description, additional_info";
+
+    // City: exact case-insensitive (no wildcards) — matches full city name only
+    const cityOr = cityFilter.length > 0
+      ? cityFilter.map((c) => `city.ilike.${c}`).join(",")
+      : null;
+
+    // Keyword OR across project_type, description, additional_info
+    const keywordClauses: string[] = [];
+    for (const t of typeTerms) {
+      keywordClauses.push(`project_type.ilike.%${t}%`, `description.ilike.%${t}%`);
+    }
+    for (const t of unitTerms) {
+      keywordClauses.push(`project_type.ilike.%${t}%`, `description.ilike.%${t}%`, `additional_info.ilike.%${t}%`);
+    }
+    for (const t of storeyTerms) {
+      keywordClauses.push(`description.ilike.%${t}%`, `additional_info.ilike.%${t}%`);
+    }
+    // Cap to avoid URL length issues
+    const cappedKeywords = [...new Set(keywordClauses)].slice(0, 60);
+
+    // Build base query
+    function baseQ() {
+      return db!.from("permits").select(SELECT).order("issued_date", { ascending: false }).limit(25);
+    }
+
+    let data, error;
+
+    if (cappedKeywords.length > 0) {
+      // Precise: city AND keywords
+      let q = baseQ();
+      if (cityOr) q = q.or(cityOr);
+      const precise = await q.or(cappedKeywords.join(","));
+      if (!precise.error && precise.data && precise.data.length > 0) {
+        data = precise.data; error = precise.error;
+      } else {
+        // Fallback: city only (no keyword filter)
+        let fallQ = baseQ();
+        if (cityOr) fallQ = fallQ.or(cityOr);
+        const fallback = await fallQ;
+        data = fallback.data; error = fallback.error;
+      }
+    } else {
+      // No keywords — city filter only
+      let q = baseQ();
+      if (cityOr) q = q.or(cityOr);
       const result = await q;
-      data = result.data;
-      error = result.error;
+      data = result.data; error = result.error;
     }
 
     if (error || !data?.length) return null;
