@@ -4,6 +4,9 @@ import Credentials from "next-auth/providers/credentials";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  // Required on Vercel — trusts the host from request headers so NextAuth
+  // doesn't reject requests coming through Vercel's edge network.
+  trustHost: true,
   providers: [
     // Test mode — dev only, bypasses real OAuth
     ...(process.env.NODE_ENV !== "production"

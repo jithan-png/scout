@@ -42,7 +42,7 @@ export default function SignInSheet({
 
       {/* Sheet */}
       <div
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 animate-fade-up"
+        className="fixed bottom-0 inset-x-0 mx-auto w-full max-w-[430px] z-50 animate-fade-up"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div
