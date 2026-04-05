@@ -202,6 +202,8 @@ export interface ScoutPanelData {
     // permit panel
     query?: string;
     permits?: PermitEntry[];
+    cities?: string[];
+    types?: string[];
     // dashboard panel
     view_type?: "score_bars" | "permit_summary" | "pipeline_funnel" | "company_brief";
     bars?: Array<{ label: string; value: number; max: number }>;
