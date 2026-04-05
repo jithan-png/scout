@@ -24,8 +24,8 @@ function parseResponse(raw: string): {
   let panelData: ScoutPanelData | null = null;
   let blocks: ChatBlock[] = [];
 
-  // Parse __PANEL__ marker: __PANEL__permit__{json} or __PANEL__dashboard__{json}
-  const panelMatch = text.match(/__PANEL__(\w+)__(\{[\s\S]*\})__?\s*$/);
+  // Parse __PANEL__ marker — handle 1 or 2 underscores (model is inconsistent)
+  const panelMatch = text.match(/__PANEL__(\w+)_+(\{[\s\S]*\})_*\s*$/);
   if (panelMatch) {
     try {
       const type = panelMatch[1] as "permit" | "dashboard";

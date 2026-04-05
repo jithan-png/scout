@@ -91,6 +91,8 @@ const PERMIT_KEYWORDS = [
   "construction", "contractor", "developer", "new work", "new project",
   "opportunity", "opportunities", "recent", "filing", "filed", "issued",
   "show me", "find me", "what's new", "whats new", "any new",
+  "hot", "active", "townhouse", "townhome", "condo", "apartment", "commercial",
+  "storey", "story", "stories", "storeys", "highrise", "lowrise",
 ];
 
 function isPermitRelated(message: string): boolean {
@@ -98,38 +100,146 @@ function isPermitRelated(message: string): boolean {
   return PERMIT_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-async function fetchPermitContext(message: string, cities: string[]): Promise<string | null> {
+// Synonym groups — any user term maps to all variants we search for
+const TYPE_SYNONYMS: Record<string, string[]> = {
+  townhouse:      ["townhome", "townhouse", "row home", "rowhouse", "town home"],
+  townhome:       ["townhome", "townhouse", "row home", "rowhouse", "town home"],
+  rowhouse:       ["townhome", "townhouse", "row home", "rowhouse"],
+  "row home":     ["townhome", "townhouse", "row home", "rowhouse"],
+  condo:          ["condo", "condominium"],
+  condominium:    ["condo", "condominium"],
+  apartment:      ["apartment", "condo", "residential"],
+  highrise:       ["highrise", "high-rise", "high rise", "tower"],
+  "high rise":    ["highrise", "high-rise", "high rise", "tower"],
+  lowrise:        ["lowrise", "low-rise", "low rise"],
+  "low rise":     ["lowrise", "low-rise", "low rise"],
+  commercial:     ["commercial", "retail", "office"],
+  retail:         ["retail", "commercial"],
+  office:         ["office", "commercial"],
+  industrial:     ["industrial", "warehouse", "distribution"],
+  warehouse:      ["warehouse", "industrial", "distribution"],
+  duplex:         ["duplex", "semi-detached"],
+  "single family":["single family", "sfh", "detached"],
+  sfh:            ["single family", "sfh", "detached"],
+  detached:       ["single family", "sfh", "detached"],
+  "mixed use":    ["mixed use", "mixed-use"],
+  school:         ["school", "education", "institutional"],
+  hospital:       ["hospital", "medical", "healthcare"],
+};
+
+// Known cities we serve — used to extract city mentions from message text
+const KNOWN_CITIES = [
+  "vancouver", "surrey", "burnaby", "richmond", "abbotsford", "kelowna",
+  "langley", "delta", "north vancouver", "west vancouver", "coquitlam",
+  "new westminster", "maple ridge", "white rock", "port moody",
+  "calgary", "edmonton", "toronto", "ottawa", "hamilton", "winnipeg",
+  "seattle", "houston", "dallas", "austin", "phoenix", "denver",
+  "chicago", "miami", "orlando", "los angeles", "san francisco",
+  "new york", "san jose", "san antonio",
+];
+
+const STOP_WORDS = new Set([
+  "show", "find", "tell", "what", "with", "that", "this", "have",
+  "from", "your", "their", "permits", "permit", "project", "projects",
+  "leads", "lead", "hot", "active", "recent", "new", "latest",
+  "area", "city", "near", "around", "about", "looking", "need",
+]);
+
+async function fetchPermitContext(message: string, profileCities: string[]): Promise<string | null> {
   const db = getSupabase();
   if (!db) return null;
 
   try {
-    // Extract search terms: prioritize city names from user profile + keywords from message
-    const searchWords = message.toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 3 && !["show", "find", "tell", "what", "with", "that", "this", "have", "from", "your", "their"].includes(w));
+    const lower = message.toLowerCase();
 
-    const searchTerm = [...cities.slice(0, 2), ...searchWords.slice(0, 3)].join(" ").trim();
+    // 1. City filter — extract from message first, fall back to profile
+    const mentionedCities = KNOWN_CITIES.filter((c) => lower.includes(c));
+    const cityFilter = mentionedCities.length > 0
+      ? mentionedCities
+      : profileCities.map((c) => c.toLowerCase());
 
-    let q = db
-      .from("permits")
-      .select("address, city, state, project_type, value, builder_company, builder_phone, builder_email, issued_date, status, description")
-      .order("issued_date", { ascending: false })
-      .limit(20);
+    // 2. Synonym-expanded project type terms
+    const typeTerms = new Set<string>();
+    for (const [key, variants] of Object.entries(TYPE_SYNONYMS)) {
+      if (lower.includes(key)) variants.forEach((v) => typeTerms.add(v));
+    }
+    // Also pass through any bare type words not in synonym map
+    const rawWords = lower.replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+      .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
+    rawWords.forEach((w) => { if (!Object.keys(TYPE_SYNONYMS).includes(w)) typeTerms.add(w); });
 
-    if (searchTerm) {
-      // Search across key fields
-      const terms = searchTerm.split(" ").filter(Boolean);
-      const orClauses = terms.flatMap((t) => [
-        `address.ilike.%${t}%`,
-        `city.ilike.%${t}%`,
-        `project_type.ilike.%${t}%`,
-        `builder_company.ilike.%${t}%`,
-      ]).join(",");
-      q = q.or(orClauses);
+    // 3. Storey range extraction — "3-6 storey", "3 to 6 story"
+    const storeyTerms: string[] = [];
+    const storeyMatch = lower.match(/(\d+)\s*[-–to]+\s*(\d+)\s*stor/);
+    if (storeyMatch) {
+      const min = parseInt(storeyMatch[1]);
+      const max = parseInt(storeyMatch[2]);
+      for (let s = min; s <= max && s <= 25; s++) {
+        storeyTerms.push(`${s} stor`);
+        storeyTerms.push(`${s}-stor`);
+        storeyTerms.push(`${s} story`);
+      }
+    }
+    // Single storey mention — "5 storey"
+    const singleStorey = lower.match(/(\d+)\s*stor/);
+    if (singleStorey && !storeyMatch) {
+      const s = parseInt(singleStorey[1]);
+      storeyTerms.push(`${s} stor`, `${s}-stor`, `${s} story`);
     }
 
-    const { data, error } = await q;
+    // 4. Build query
+    let q = db
+      .from("permits")
+      .select("address, city, state, project_type, value, builder_company, builder_phone, builder_email, issued_date, status, description, additional_info")
+      .order("issued_date", { ascending: false })
+      .limit(25);
+
+    // City filter — always apply if we have cities
+    if (cityFilter.length > 0) {
+      const cityOr = cityFilter.map((c) => `city.ilike.%${c}%`).join(",");
+      q = q.or(cityOr);
+    }
+
+    // Project type + description keyword filter
+    const keywordClauses: string[] = [];
+    typeTerms.forEach((t) => {
+      keywordClauses.push(`project_type.ilike.%${t}%`);
+      keywordClauses.push(`description.ilike.%${t}%`);
+    });
+    storeyTerms.forEach((t) => {
+      keywordClauses.push(`description.ilike.%${t}%`);
+      keywordClauses.push(`additional_info.ilike.%${t}%`);
+    });
+
+    // If we have keyword clauses, apply them (this ANDs with city filter above)
+    // Since Supabase chains .or() as AND, we need a separate query for the keyword OR
+    let data, error;
+    if (keywordClauses.length > 0) {
+      // Run two queries: one with keyword filter (precise), one without (broad city fallback)
+      const { data: precise, error: e1 } = await q.or(keywordClauses.join(","));
+      if (!e1 && precise && precise.length > 0) {
+        data = precise;
+        error = e1;
+      } else {
+        // Fall back: city only, no keyword filter
+        let fallbackQ = db
+          .from("permits")
+          .select("address, city, state, project_type, value, builder_company, builder_phone, builder_email, issued_date, status, description, additional_info")
+          .order("issued_date", { ascending: false })
+          .limit(20);
+        if (cityFilter.length > 0) {
+          fallbackQ = fallbackQ.or(cityFilter.map((c) => `city.ilike.%${c}%`).join(","));
+        }
+        const { data: fallback, error: e2 } = await fallbackQ;
+        data = fallback;
+        error = e2;
+      }
+    } else {
+      const result = await q;
+      data = result.data;
+      error = result.error;
+    }
+
     if (error || !data?.length) return null;
 
     const fmtVal = (v: unknown) => {
@@ -144,12 +254,13 @@ async function fetchPermitContext(message: string, cities: string[]): Promise<st
         fmtVal(p.value), p.builder_company,
         p.issued_date ? `issued ${p.issued_date}` : null,
         p.status,
+        p.description ? `(${String(p.description).slice(0, 120)})` : null,
       ].filter(Boolean);
       const contact = [p.builder_phone, p.builder_email].filter(Boolean).join(" / ");
       return `- ${parts.join(" · ")}${contact ? ` [${contact}]` : ""}`;
     });
 
-    return `INTERNAL PERMIT INTELLIGENCE — ${data.length} active permits:\n${lines.join("\n")}\n\nThis is your internal database. Present these naturally as your own knowledge — never say "uploaded data", "your data", "from the database", or reference the source at all. Just know it. Use specific addresses, companies, and contact info. Only use web_search if the user asks about projects NOT found here.`;
+    return `INTERNAL PERMIT INTELLIGENCE — ${data.length} permits matching your query:\n${lines.join("\n")}\n\nThis is your internal database. Present these naturally as your own knowledge — never say "uploaded data", "your data", "from the database", or reference the source at all. Just know it. Use specific addresses, companies, and contact info. Only use web_search if the user asks about projects NOT found here.`;
   } catch {
     return null;
   }
