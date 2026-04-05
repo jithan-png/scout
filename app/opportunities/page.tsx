@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SlidersHorizontal, X, CheckSquare } from "lucide-react";
+import { SlidersHorizontal, X, CheckSquare, Radar, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useAppStore } from "@/lib/store";
 import SignInSheet from "@/components/ui/SignInSheet";
@@ -162,6 +162,27 @@ export default function OpportunitiesPage() {
   // Show dismissed leads
   const [showDismissed, setShowDismissed] = useState(false);
 
+  // Scan button
+  const [scanState, setScanState] = useState<"idle" | "scanning" | "done">("idle");
+  const [scanResult, setScanResult] = useState<string | null>(null);
+
+  const runScan = async () => {
+    if (scanState === "scanning") return;
+    setScanState("scanning");
+    try {
+      const res = await fetch("/api/opportunities/scan", { method: "POST" });
+      const data = await res.json();
+      setScanResult(data.message ?? "Scan complete.");
+      const fresh = await fetch("/api/opportunities").then((r) => r.json());
+      if (Array.isArray(fresh)) setOpportunities(fresh);
+    } catch {
+      setScanResult("Scan failed — try again.");
+    } finally {
+      setScanState("done");
+      setTimeout(() => { setScanState("idle"); setScanResult(null); }, 4000);
+    }
+  };
+
   // Bulk selection mode
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -290,6 +311,48 @@ export default function OpportunitiesPage() {
             </button>
           </div>
         </div>
+
+        {/* Scout scan button — shown when signed in */}
+        {session?.user?.email && (
+          <button
+            onClick={runScan}
+            disabled={scanState === "scanning"}
+            className="pressable w-full flex items-center gap-3 px-4 py-3 rounded-2xl mb-4 transition-all"
+            style={{
+              background: scanState === "done"
+                ? "rgba(0,200,117,0.10)"
+                : "rgba(255,255,255,0.04)",
+              border: scanState === "done"
+                ? "1px solid rgba(0,200,117,0.25)"
+                : "1px solid rgba(255,255,255,0.07)",
+            }}
+          >
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{
+                background: scanState === "done"
+                  ? "rgba(0,200,117,0.15)"
+                  : "rgba(0,200,117,0.08)",
+              }}
+            >
+              {scanState === "scanning" ? (
+                <Loader2 size={15} strokeWidth={2} style={{ color: "#00C875", animation: "spin 1s linear infinite" }} />
+              ) : (
+                <Radar size={15} strokeWidth={2} style={{ color: "#00C875" }} />
+              )}
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-[13px] font-semibold leading-tight" style={{ color: "#F4F4F5" }}>
+                {scanState === "scanning" ? "Scanning permits…" : scanState === "done" ? (scanResult ?? "Scan complete") : "Scout for new leads"}
+              </p>
+              {scanState === "idle" && (
+                <p className="text-[11px] mt-0.5" style={{ color: "#52525B" }}>
+                  Scans permits · auto-runs daily
+                </p>
+              )}
+            </div>
+          </button>
+        )}
 
         {/* Nudge banner */}
         {!session && !nudgeDismissed && !isLoadingOpportunities && opportunities.length > 0 && (

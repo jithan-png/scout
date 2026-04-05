@@ -371,21 +371,9 @@ async function fetchPermitContext(message: string, profileCities: string[]): Pro
       [...typeTerms].slice(0, 2).join(", ") || null,
     ].filter(Boolean).join(" · ") || "Permits";
 
-    // Pre-build the panel JSON server-side so Claude just echoes it back verbatim.
-    // This avoids the common failure where Claude outputs permits:[] or malformed JSON.
-    const panelPermits = data.slice(0, 20).map((p) => ({
-      address: p.address ?? "",
-      city: p.city ?? "",
-      project_type: p.project_type ?? "",
-      value: Number(p.value ?? 0),
-      builder_company: p.builder_company ?? "",
-      builder_phone: p.builder_phone ?? "",
-      builder_email: p.builder_email ?? "",
-      issued_date: p.issued_date ?? "",
-      status: p.status ?? "",
-      description: p.description ? String(p.description).slice(0, 200) : "",
-    }));
-    const panelJson = JSON.stringify({ query: queryLabel, permits: panelPermits });
+    // Build a small panel marker (~100 chars) so Claude can echo it without hitting token limits.
+    // PermitTablePanel will fetch the actual permit data client-side using these structured params.
+    const panelJson = JSON.stringify({ query: queryLabel, cities: cityFilter, types: [...typeTerms].slice(0, 5) });
 
     return {
       text: `INTERNAL PERMIT INTELLIGENCE — ${data.length} permits matching your query:\n${lines.join("\n")}\n\nThis is your internal database. Present these naturally as your own knowledge — never say "uploaded data", "your data", "from the database", or reference the source at all. Just know it. Use specific addresses, companies, and contact info. Only use web_search if the user asks about projects NOT found here.`,

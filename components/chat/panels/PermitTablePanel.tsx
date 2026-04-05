@@ -254,21 +254,34 @@ function PermitCard({ permit, index, onScoutMessage, onOpenDetail, onLeadAdded }
 interface PermitTablePanelProps {
   query?: string;
   permits?: PermitEntry[];
+  cities?: string[];
+  types?: string[];
   onScoutMessage?: (msg: string) => void;
   onOpenDetail?: (opp: ScoutOpportunity) => void;
   onLeadAdded?: (label: string) => void;
 }
 
-export default function PermitTablePanel({ query, permits: initialPermits, onScoutMessage, onOpenDetail, onLeadAdded }: PermitTablePanelProps) {
+export default function PermitTablePanel({ query, permits: initialPermits, cities, types, onScoutMessage, onOpenDetail, onLeadAdded }: PermitTablePanelProps) {
   const [permits, setPermits] = useState<PermitEntry[]>(initialPermits ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!initialPermits?.length && query) {
+    if (initialPermits?.length) {
+      setPermits(initialPermits);
+      return;
+    }
+    // Build structured fetch URL from cities/types params (panel marker approach — never truncated)
+    const hasCities = cities && cities.length > 0;
+    const hasTypes = types && types.length > 0;
+    if (hasCities || hasTypes || query) {
       setLoading(true);
       setError(null);
-      fetch(`/api/permits/search?q=${encodeURIComponent(query)}&limit=50`)
+      let url = "/api/permits/search?limit=50";
+      if (hasCities) url += `&cities=${encodeURIComponent(cities!.join(","))}`;
+      if (hasTypes) url += `&types=${encodeURIComponent(types!.join(","))}`;
+      if (!hasCities && !hasTypes && query) url += `&q=${encodeURIComponent(query)}`;
+      fetch(url)
         .then((r) => r.json())
         .then((data) => {
           const list = Array.isArray(data) ? data : (data.permits ?? data.results ?? []);
@@ -276,10 +289,8 @@ export default function PermitTablePanel({ query, permits: initialPermits, onSco
         })
         .catch(() => setError("Couldn't load permit data."))
         .finally(() => setLoading(false));
-    } else if (initialPermits?.length) {
-      setPermits(initialPermits);
     }
-  }, [query, initialPermits]);
+  }, [query, initialPermits, cities, types]);
 
   if (loading) {
     return (

@@ -155,6 +155,8 @@ export default function ScoutPanel({ data, onClose, onScoutMessage }: ScoutPanel
                 <PermitTablePanel
                   query={data.data.query}
                   permits={data.data.permits}
+                  cities={data.data.cities}
+                  types={data.data.types}
                   onScoutMessage={onScoutMessage}
                   onOpenDetail={(opp) => setDetailOpp(opp)}
                   onLeadAdded={(label) => showPipelineToast(label)}
