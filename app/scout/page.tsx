@@ -311,11 +311,15 @@ function ScoutPageInner() {
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         accumulated += chunk;
-        // Strip markers before queuing to avoid flashing
-        const display = accumulated
-          .replace(/__ACTION:run_scout__/g, "")
-          .replace(/__PANEL__\w+__\{[\s\S]*\}__?/g, "")
-          .replace(/__BLOCK__[\s\S]*/g, "");
+        // Truncate at the first marker — partial JSON won't match a regex so we
+        // must cut here to prevent the raw marker text from leaking into the drain.
+        let display = accumulated.replace(/__ACTION:run_scout__/g, "");
+        const markerIdx = Math.min(
+          display.indexOf("__PANEL__") === -1 ? Infinity : display.indexOf("__PANEL__"),
+          display.indexOf("__BLOCK__") === -1 ? Infinity : display.indexOf("__BLOCK__"),
+        );
+        if (markerIdx !== Infinity) display = display.slice(0, markerIdx);
+        display = display.trimEnd();
         if (display.length > displayedLen) {
           enqueueChunk(display.slice(displayedLen));
           displayedLen = display.length;
@@ -433,11 +437,14 @@ function ScoutPageInner() {
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         accumulated += chunk;
-        // Build clean display version (strip markers)
-        const display = accumulated
-          .replace(/__ACTION:run_scout__/g, "")
-          .replace(/__PANEL__\w+__\{[\s\S]*\}__?/g, "")
-          .replace(/__BLOCK__[\s\S]*/g, "");
+        // Truncate at first marker — partial JSON can't be regex-stripped mid-stream
+        let display = accumulated.replace(/__ACTION:run_scout__/g, "");
+        const markerIdx = Math.min(
+          display.indexOf("__PANEL__") === -1 ? Infinity : display.indexOf("__PANEL__"),
+          display.indexOf("__BLOCK__") === -1 ? Infinity : display.indexOf("__BLOCK__"),
+        );
+        if (markerIdx !== Infinity) display = display.slice(0, markerIdx);
+        display = display.trimEnd();
         // Only enqueue new characters
         if (display.length > displayedLen) {
           enqueueChunk(display.slice(displayedLen));
