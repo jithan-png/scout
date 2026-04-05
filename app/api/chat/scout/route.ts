@@ -29,11 +29,10 @@ Best approach for cold outreach: lead with what you know about their project, th
 
 PERMIT DATA:
 When the user asks about permits or specific projects in their area:
-1. Internal permits are injected above as INTERNAL PERMIT INTELLIGENCE — treat this as your own knowledge, never cite or mention the source.
-2. Use web_search to find public permit filings for any city not covered internally — most cities publish permit data online.
-3. Never say "from your uploaded data", "from the database", or any similar phrase. Just present the intelligence naturally.
-4. When you have permit results to display, end your response with: __PANEL__permit__{"query":"<search query used>","permits":[{"address":"...","city":"...","project_type":"...","value":0,"builder_company":"...","issued_date":"...","status":"..."}]}
-Only include the __PANEL__ marker if you actually have structured permit data to show. Do not include it for general advice.
+1. Internal permits are injected as INTERNAL PERMIT INTELLIGENCE — treat as your own knowledge. Never reference the source.
+2. Use web_search to find public permit filings for any city not covered internally.
+3. Never say "from your uploaded data", "from the database", or any similar phrase.
+4. When internal permit data is available, a PANEL INSTRUCTION will appear at the bottom of the system prompt. Copy that exact string at the very end of your response, after all text. Do not modify it. Do not include a panel marker if no PANEL INSTRUCTION was provided.
 
 GENERATIVE DASHBOARD:
 When the user asks for analytics, score comparisons, summaries with numbers, or pipeline status — end your response with: __PANEL__dashboard__{"view_type":"score_bars"|"permit_summary"|"pipeline_funnel","data":{...}}
@@ -233,7 +232,7 @@ function toTitleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-async function fetchPermitContext(message: string, profileCities: string[]): Promise<{ text: string; companies: string[] } | null> {
+async function fetchPermitContext(message: string, profileCities: string[]): Promise<{ text: string; companies: string[]; panelJson: string; queryLabel: string } | null> {
   const db = getSupabase();
   if (!db) return null;
 
@@ -366,9 +365,33 @@ async function fetchPermitContext(message: string, profileCities: string[]): Pro
       data.flatMap((p) => [p.builder_company, p.applicant_company, p.owner_company].filter(Boolean) as string[])
     )];
 
+    // Build label for panel header (e.g. "Vancouver · Townhouse")
+    const queryLabel = [
+      cityFilter.slice(0, 2).join(", ") || null,
+      [...typeTerms].slice(0, 2).join(", ") || null,
+    ].filter(Boolean).join(" · ") || "Permits";
+
+    // Pre-build the panel JSON server-side so Claude just echoes it back verbatim.
+    // This avoids the common failure where Claude outputs permits:[] or malformed JSON.
+    const panelPermits = data.slice(0, 20).map((p) => ({
+      address: p.address ?? "",
+      city: p.city ?? "",
+      project_type: p.project_type ?? "",
+      value: Number(p.value ?? 0),
+      builder_company: p.builder_company ?? "",
+      builder_phone: p.builder_phone ?? "",
+      builder_email: p.builder_email ?? "",
+      issued_date: p.issued_date ?? "",
+      status: p.status ?? "",
+      description: p.description ? String(p.description).slice(0, 200) : "",
+    }));
+    const panelJson = JSON.stringify({ query: queryLabel, permits: panelPermits });
+
     return {
       text: `INTERNAL PERMIT INTELLIGENCE — ${data.length} permits matching your query:\n${lines.join("\n")}\n\nThis is your internal database. Present these naturally as your own knowledge — never say "uploaded data", "your data", "from the database", or reference the source at all. Just know it. Use specific addresses, companies, and contact info. Only use web_search if the user asks about projects NOT found here.`,
       companies,
+      panelJson,
+      queryLabel,
     };
   } catch {
     return null;
@@ -468,6 +491,10 @@ export async function POST(req: NextRequest) {
         if (relCtx) systemPrompt += `\n\n${relCtx}`;
       } catch { /* relationship data unavailable — continue without */ }
     }
+
+    // Inject the pre-built panel JSON so Claude just echoes it verbatim.
+    // This eliminates the blank panel bug caused by Claude serializing permits:[] or bad JSON.
+    systemPrompt += `\n\nPANEL INSTRUCTION: After your response text (do not put it mid-response), copy this EXACT string with no modifications:\n__PANEL__permit__${permitResult.panelJson}__`;
   }
 
   // ── Inject tender context ─────────────────────────────────────────────────
