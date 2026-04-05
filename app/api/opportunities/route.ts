@@ -3,16 +3,12 @@ import { auth } from "@/auth";
 import { supabase } from "@/lib/supabase";
 import type { ScoutOpportunity } from "@/lib/types";
 
-function getUserId(session: Awaited<ReturnType<typeof auth>>): string | null {
-  return session?.user?.email ?? null;
-}
-
 // ── GET /api/opportunities ────────────────────────────────────────────────────
 // Returns all non-dismissed opportunities for the current user, sorted by score.
 
 export async function GET(req: NextRequest) {
   const session = await auth();
-  const userId = getUserId(session);
+  const userId = session?.user?.email ?? null;
   if (!userId) return NextResponse.json([], { status: 200 });
 
   const showDismissed = req.nextUrl.searchParams.get("dismissed") === "true";
@@ -52,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  const userId = getUserId(session);
+  const userId = session?.user?.email ?? null;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();

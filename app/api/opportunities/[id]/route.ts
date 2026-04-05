@@ -7,13 +7,13 @@ import { supabase } from "@/lib/supabase";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   const userId = session?.user?.email;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = params;
+  const { id } = await params;
   const body = await req.json() as {
     dismissed?: boolean;
     liked?: boolean;

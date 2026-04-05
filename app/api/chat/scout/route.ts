@@ -221,7 +221,7 @@ function toTitleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-async function fetchPermitContext(message: string, profileCities: string[]): Promise<string | null> {
+async function fetchPermitContext(message: string, profileCities: string[]): Promise<{ text: string; companies: string[] } | null> {
   const db = getSupabase();
   if (!db) return null;
 
@@ -279,7 +279,7 @@ async function fetchPermitContext(message: string, profileCities: string[]): Pro
     }
 
     // ── 5. Build Supabase query ───────────────────────────────────────────────
-    const SELECT = "address, city, state, project_type, value, builder_company, builder_phone, builder_email, issued_date, status, description, additional_info";
+    const SELECT = "address, city, state, project_type, value, builder_company, builder_phone, builder_email, applicant_company, owner_company, issued_date, status, description, additional_info";
 
     // City: exact case-insensitive (no wildcards) — matches full city name only
     const cityOr = cityFilter.length > 0
