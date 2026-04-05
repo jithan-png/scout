@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Upload, Trash2, FileSpreadsheet, CheckCircle, AlertCircle, X } from "lucide-react";
 import { uploadPermitFile, getPermitBatches, deletePermitBatch } from "@/lib/permits";
