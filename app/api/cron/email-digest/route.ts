@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return process.env.NODE_ENV !== "production"; // dev only — blocked in prod
   const auth = req.headers.get("authorization") ?? "";
   return auth === `Bearer ${secret}`;
 }

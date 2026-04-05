@@ -120,7 +120,7 @@ export default function OpportunitiesPage() {
       .then((data: ScoutOpportunity[]) => {
         if (Array.isArray(data)) setOpportunities(data);
       })
-      .catch(() => {});
+      .catch((e) => console.error("[opportunities] fetch failed:", e));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.email]);
 

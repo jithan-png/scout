@@ -426,7 +426,9 @@ export async function POST(req: NextRequest) {
 
   if (userId) {
     try {
-      const { data: bp } = await getSupabase()!
+      const supabase = getSupabase();
+      if (!supabase) throw new Error("no_supabase");
+      const { data: bp } = await supabase
         .from("behavioral_profiles")
         .select("top_project_types, top_cities, value_range_min, value_range_max, win_rate_by_type, top_companies, total_wins")
         .eq("user_id", userId)
@@ -470,6 +472,7 @@ export async function POST(req: NextRequest) {
 
   // ── Inject permit context + relationships ─────────────────────────────────
   if (permitResult) {
+    console.log(`[scout] permit fetch: ${permitResult.companies.length} companies, panelJson=${permitResult.panelJson}`);
     systemPrompt += `\n\n${permitResult.text}`;
 
     if (userId && permitResult.companies.length > 0) {
@@ -483,6 +486,9 @@ export async function POST(req: NextRequest) {
     // Inject the pre-built panel JSON so Claude just echoes it verbatim.
     // This eliminates the blank panel bug caused by Claude serializing permits:[] or bad JSON.
     systemPrompt += `\n\nPANEL INSTRUCTION: After your response text (do not put it mid-response), copy this EXACT string with no modifications:\n__PANEL__permit__${permitResult.panelJson}__`;
+  } else if (isPermit) {
+    console.log("[scout] permit fetch: null — no Supabase data or no matching permits for query");
+    systemPrompt += "\n\nNOTE: Internal permit database has no results for this query. Use web_search to find real permit filings instead. Do not mention the database or any internal source.";
   }
 
   // ── Inject tender context ─────────────────────────────────────────────────
@@ -517,7 +523,7 @@ export async function POST(req: NextRequest) {
 
         const messageStream = client.messages.stream({
           model: "claude-sonnet-4-6",
-          max_tokens: isDailyBriefing ? 300 : 2048,
+          max_tokens: isDailyBriefing ? 300 : 4096,
           tools,
           system: systemPrompt,
           messages,

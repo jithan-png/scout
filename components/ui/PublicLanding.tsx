@@ -156,7 +156,9 @@ export default function PublicLanding() {
           </span>
         </div>
         <button
-          onClick={() => signIn("google", { callbackUrl: "/scout" })}
+          onClick={() => {
+            window.location.href = `/api/auth/signin/google?callbackUrl=${encodeURIComponent("/scout")}`;
+          }}
           className="text-[13px] transition-colors duration-150"
           style={{ color: "#52525B" }}
           onMouseEnter={e => (e.currentTarget.style.color = "#F4F4F5")}

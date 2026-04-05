@@ -77,7 +77,9 @@ export default function SignInSheet({
           </p>
 
           <button
-            onClick={() => signIn("google", { callbackUrl })}
+            onClick={() => {
+            window.location.href = `/api/auth/signin/google?callbackUrl=${encodeURIComponent(callbackUrl || "/scout")}`;
+          }}
             className="pressable w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-[15px] font-semibold mb-3"
             style={{ background: "#fff", color: "#111" }}
           >
