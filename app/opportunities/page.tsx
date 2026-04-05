@@ -96,6 +96,7 @@ export default function OpportunitiesPage() {
   const {
     opportunities,
     isLoadingOpportunities,
+    setOpportunities,
     savedOpportunityIds,
     selectOpportunity,
     activeIntent,
@@ -105,8 +106,48 @@ export default function OpportunitiesPage() {
     dismissOpportunity,
     undoDismissOpportunity,
     likedOpportunityIds,
+    likeOpportunity,
+    markContacted,
     likeSignals,
   } = useAppStore();
+
+  // ── Load real opportunities from Supabase on mount ───────────────────────
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    setOpportunities([]); // clear mock data
+    fetch("/api/opportunities")
+      .then((r) => r.json())
+      .then((data: ScoutOpportunity[]) => {
+        if (Array.isArray(data)) setOpportunities(data);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email]);
+
+  // ── Sync dismiss/like/contact actions to Supabase ────────────────────────
+  const handleDismissWithSync = (id: string, label: string) => {
+    dismissOpportunity(id);
+    fetch(`/api/opportunities/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dismissed: true }),
+    }).catch(() => {});
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoTarget({ id, label });
+    undoTimerRef.current = setTimeout(() => setUndoTarget(null), 3500);
+  };
+
+  const handleUndoWithSync = () => {
+    if (!undoTarget) return;
+    undoDismissOpportunity(undoTarget.id);
+    fetch(`/api/opportunities/${undoTarget.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dismissed: false }),
+    }).catch(() => {});
+    setUndoTarget(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+  };
 
   const [filter, setFilter] = useState<OpportunityPriority | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
@@ -140,19 +181,8 @@ export default function OpportunitiesPage() {
     });
   };
 
-  const handleDismiss = (id: string, label: string) => {
-    dismissOpportunity(id);
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setUndoTarget({ id, label });
-    undoTimerRef.current = setTimeout(() => setUndoTarget(null), 3500);
-  };
-
-  const handleUndo = () => {
-    if (!undoTarget) return;
-    undoDismissOpportunity(undoTarget.id);
-    setUndoTarget(null);
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-  };
+  const handleDismiss = handleDismissWithSync;
+  const handleUndo = handleUndoWithSync;
 
   useEffect(() => () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); }, []);
 

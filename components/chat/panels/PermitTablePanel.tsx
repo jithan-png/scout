@@ -57,8 +57,14 @@ function PermitCard({ permit, index, onScoutMessage, onOpenDetail, onLeadAdded }
     const opp = permitToOpportunity(permit);
     const isNew = !opportunities.find((o) => o.id === opp.id);
     addOrUpdateOpportunity(opp);
-    if (isNew && onLeadAdded) {
-      onLeadAdded(opp.company.name);
+    if (isNew) {
+      // Persist to Supabase so it survives refresh
+      fetch("/api/opportunities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(opp),
+      }).catch(() => {});
+      if (onLeadAdded) onLeadAdded(opp.company.name);
     }
     if (onOpenDetail) {
       onOpenDetail(opp);

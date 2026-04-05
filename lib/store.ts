@@ -266,8 +266,9 @@ export const useAppStore = create<AppStore>()(
       clearIntent: () => set({ activeIntent: null }),
 
       // ── Opportunities ────────────────────────────────────────────────────────
-      opportunities: MOCK_OPPORTUNITIES,
-      isLoadingOpportunities: false,
+      // Seeded empty — real data loaded from Supabase on mount in opportunities/page.tsx
+      opportunities: [],
+      isLoadingOpportunities: true,
       setOpportunities: (opps) => set({ opportunities: opps, isLoadingOpportunities: false }),
       savedOpportunityIds: new Set(),
       selectedOpportunityId: null,
