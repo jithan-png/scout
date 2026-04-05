@@ -271,26 +271,25 @@ export default function PermitTablePanel({ query, permits: initialPermits, citie
       setPermits(initialPermits);
       return;
     }
-    // Build structured fetch URL from cities/types params (panel marker approach — never truncated)
+    // Always fetch when panel opens. Apply city/type filters when available,
+    // otherwise return all permits (no filter). Never use query as a search
+    // term — it's a display label, not a meaningful DB search string.
+    setLoading(true);
+    setError(null);
     const hasCities = cities && cities.length > 0;
     const hasTypes = types && types.length > 0;
-    if (hasCities || hasTypes || query) {
-      setLoading(true);
-      setError(null);
-      let url = "/api/permits/search?limit=50";
-      if (hasCities) url += `&cities=${encodeURIComponent(cities!.join(","))}`;
-      if (hasTypes) url += `&types=${encodeURIComponent(types!.join(","))}`;
-      if (!hasCities && !hasTypes && query) url += `&q=${encodeURIComponent(query)}`;
-      fetch(url)
-        .then((r) => r.json())
-        .then((data) => {
-          const list = Array.isArray(data) ? data : (data.permits ?? data.results ?? []);
-          setPermits(list);
-        })
-        .catch(() => setError("Couldn't load permit data."))
-        .finally(() => setLoading(false));
-    }
-  }, [query, initialPermits, cities, types]);
+    let url = "/api/permits/search?limit=50";
+    if (hasCities) url += `&cities=${encodeURIComponent(cities!.join(","))}`;
+    if (hasTypes) url += `&types=${encodeURIComponent(types!.join(","))}`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data.permits ?? data.results ?? []);
+        setPermits(list);
+      })
+      .catch(() => setError("Couldn't load permit data."))
+      .finally(() => setLoading(false));
+  }, [initialPermits, cities, types]);
 
   if (loading) {
     return (
