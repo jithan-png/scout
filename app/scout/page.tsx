@@ -24,15 +24,26 @@ function parseResponse(raw: string): {
   let panelData: ScoutPanelData | null = null;
   let blocks: ChatBlock[] = [];
 
-  // Parse __PANEL__ marker — handle 1 or 2 underscores (model is inconsistent)
-  const panelMatch = text.match(/__PANEL__(\w+)_+(\{[\s\S]*\})_*\s*$/);
-  if (panelMatch) {
-    try {
-      const type = panelMatch[1] as "permit" | "dashboard";
-      const data = JSON.parse(panelMatch[2]);
-      panelData = { type, data };
-      text = text.slice(0, panelMatch.index).trim();
-    } catch { /* ignore malformed panel */ }
+  // Parse __PANEL__ marker — robust extraction regardless of underscore count
+  const panelIdx = text.indexOf("__PANEL__");
+  if (panelIdx !== -1) {
+    const after = text.slice(panelIdx + 9); // skip "__PANEL__"
+    // type is everything up to the next _ or {
+    const typeMatch = after.match(/^(\w+)_+/);
+    if (typeMatch) {
+      const jsonStart = panelIdx + 9 + typeMatch[0].length;
+      // JSON runs to the last } in the string (greedy)
+      const jsonStr = text.slice(jsonStart).replace(/_*\s*$/, "").trimEnd();
+      const lastBrace = jsonStr.lastIndexOf("}");
+      const candidate = lastBrace !== -1 ? jsonStr.slice(0, lastBrace + 1) : jsonStr;
+      try {
+        const type = typeMatch[1] as "permit" | "dashboard";
+        const data = JSON.parse(candidate);
+        panelData = { type, data };
+        text = text.slice(0, panelIdx).trim();
+      } catch { /* ignore malformed panel — still strip the marker text */ }
+      if (!panelData) text = text.slice(0, panelIdx).trim(); // strip even if parse fails
+    }
   }
 
   // Parse __BLOCK__ marker
@@ -315,8 +326,8 @@ function ScoutPageInner() {
         // must cut here to prevent the raw marker text from leaking into the drain.
         let display = accumulated.replace(/__ACTION:run_scout__/g, "");
         const markerIdx = Math.min(
-          display.indexOf("__PANEL__") === -1 ? Infinity : display.indexOf("__PANEL__"),
-          display.indexOf("__BLOCK__") === -1 ? Infinity : display.indexOf("__BLOCK__"),
+          display.indexOf("__PANEL") === -1 ? Infinity : display.indexOf("__PANEL"),
+          display.indexOf("__BLOCK") === -1 ? Infinity : display.indexOf("__BLOCK"),
         );
         if (markerIdx !== Infinity) display = display.slice(0, markerIdx);
         display = display.trimEnd();
@@ -440,8 +451,8 @@ function ScoutPageInner() {
         // Truncate at first marker — partial JSON can't be regex-stripped mid-stream
         let display = accumulated.replace(/__ACTION:run_scout__/g, "");
         const markerIdx = Math.min(
-          display.indexOf("__PANEL__") === -1 ? Infinity : display.indexOf("__PANEL__"),
-          display.indexOf("__BLOCK__") === -1 ? Infinity : display.indexOf("__BLOCK__"),
+          display.indexOf("__PANEL") === -1 ? Infinity : display.indexOf("__PANEL"),
+          display.indexOf("__BLOCK") === -1 ? Infinity : display.indexOf("__BLOCK"),
         );
         if (markerIdx !== Infinity) display = display.slice(0, markerIdx);
         display = display.trimEnd();
