@@ -36,7 +36,7 @@ export async function GET() {
 
   const batches = [...batchMap.values()].map((b) => ({
     id: b.id,
-    filename: b.id, // no filename stored — show batch ID
+    filename: b.id.split("::")[1] ?? b.id,
     created_at: b.created_at,
     inserted: b.count,
     total_rows: b.count,

@@ -9,6 +9,7 @@ export interface PermitBatch {
   created_at: string;
   total_rows: number;
   inserted: number;
+  cities?: string[];
 }
 
 export interface UploadResult {

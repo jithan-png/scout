@@ -338,7 +338,9 @@ export default function AdminPermitsPage() {
                       {batch.filename}
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: "#52525B" }}>
-                      {batch.inserted} permits · {fmtDate(batch.created_at)}
+                      {batch.inserted} permits
+                      {batch.cities?.length ? ` · ${batch.cities.slice(0, 3).join(", ")}${batch.cities.length > 3 ? ` +${batch.cities.length - 3} more` : ""}` : ""}
+                      {" · "}{fmtDate(batch.created_at)}
                     </p>
                   </div>
                   <button

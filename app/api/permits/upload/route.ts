@@ -139,7 +139,8 @@ export async function POST(req: NextRequest) {
   const headers = (rows[0] as unknown[]).map((h) => h != null ? String(h).trim() : "");
   const fieldMap = headers.map(normalizeCol);
 
-  const batchId = `batch-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
+  const batchId = `batch-${randomUUID().replace(/-/g, "").slice(0, 12)}::${safeName}`;
   const now = new Date().toISOString();
   const permits: Record<string, unknown>[] = [];
 
