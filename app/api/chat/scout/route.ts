@@ -49,6 +49,18 @@ You have web search and can find:
 - Market activity and construction trends
 - Subcontractor and supplier relationships
 
+TENDER PORTALS — when asked about tenders, bids, or RFPs:
+- Canada national tenders: merx.com
+- BC provincial tenders: bcbid.gov.bc.ca
+- Municipal/private tenders: biddingo.com
+Search these directly with web_search. For each tender found: project name, issuer, closing date, estimated value, and the user's best angle of entry.
+
+MARKET SIGNALS — when asked about developers, rezoning, or upcoming projects:
+- Pre-permit signals: city planning portals (search "[city] development permit application 2025"), rezoning applications
+- Developer monitoring: search "[company name] new project 2025 construction"
+- LinkedIn hiring signals: "project manager" OR "site superintendent" job postings in the user's cities signal imminent construction starts (typically 4-8 weeks before permit)
+- Pre-permit leads are highest-value: the user reaches out before competitors even know the project exists
+
 You can also:
 - Draft intro emails, follow-up messages, and outreach tailored to specific leads
 - Analyze whether a lead is worth pursuing and why
@@ -366,6 +378,7 @@ async function fetchPermitContext(message: string, profileCities: string[]): Pro
 // ── Route handler ────────────────────────────────────────────────────────────
 
 import { findRelationships, formatRelationshipContext } from "@/lib/relationship";
+import { fetchTenderContext, fetchWebProjectContext, isTenderRelated, isMarketResearchRelated } from "@/lib/research";
 
 export async function POST(req: NextRequest) {
   const { message, history = [], userProfile = {}, userId, isDailyBriefing = false } = await req.json();
@@ -391,19 +404,15 @@ export async function POST(req: NextRequest) {
 
   let systemPrompt = buildSystemPrompt(profile);
 
-  // ── Fetch permit context + behavioral profile + relationships in parallel ──
+  // ── Determine which data sources to activate ──────────────────────────────
   const isPermit = !isDailyBriefing && isPermitRelated(message);
+  const isTender = !isDailyBriefing && isTenderRelated(message);
+  const isMarket = !isDailyBriefing && isMarketResearchRelated(message);
 
-  const [permitResult, behavioralProfile] = await Promise.all([
-    isPermit ? fetchPermitContext(message, profile.cities) : Promise.resolve(null),
-    userId ? fetch(`${process.env.NEXTAUTH_URL}/api/profile/behavioral`, {
-      headers: { "x-internal": "1", "Content-Type": "application/json" },
-      // Pass userId via a custom approach — read it server-side
-    }).then(() => null).catch(() => null) : Promise.resolve(null),
-  ]);
-
-  // Fetch behavioral profile directly from Supabase (faster than HTTP roundtrip)
+  // ── Fetch behavioral profile from Supabase first (needed for company list) ─
   let behavioralCtx = "";
+  let topCompanies: string[] = [];
+
   if (userId) {
     try {
       const { data: bp } = await getSupabase()!
@@ -413,6 +422,8 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (bp) {
+        topCompanies = (bp.top_companies as string[]) ?? [];
+
         const winRates = Object.entries(bp.win_rate_by_type as Record<string, number> ?? {})
           .sort((a, b) => b[1] - a[1])
           .slice(0, 3)
@@ -438,11 +449,18 @@ export async function POST(req: NextRequest) {
     } catch { /* no profile yet — skip */ }
   }
 
-  // Permit context + relationship cross-reference
+  // ── Run all data fetches in parallel ──────────────────────────────────────
+  const cities = profile.cities;
+  const [permitResult, tenderCtx, webCtx] = await Promise.all([
+    isPermit ? fetchPermitContext(message, cities) : Promise.resolve(null),
+    isTender ? fetchTenderContext(cities, profile.trades) : Promise.resolve(null),
+    (isMarket || isDailyBriefing) ? fetchWebProjectContext(cities, topCompanies, profile.trades) : Promise.resolve(null),
+  ]);
+
+  // ── Inject permit context + relationships ─────────────────────────────────
   if (permitResult) {
     systemPrompt += `\n\n${permitResult.text}`;
 
-    // Cross-reference permit companies against user's contacts
     if (userId && permitResult.companies.length > 0) {
       try {
         const relationships = await findRelationships(userId, permitResult.companies);
@@ -452,11 +470,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Inject tender context ─────────────────────────────────────────────────
+  if (tenderCtx) systemPrompt += `\n\n${tenderCtx}`;
+
+  // ── Inject web/market project context ────────────────────────────────────
+  if (webCtx) systemPrompt += `\n\n${webCtx}`;
+
+  // ── Inject behavioral profile ─────────────────────────────────────────────
   if (behavioralCtx) systemPrompt += `\n\n${behavioralCtx}`;
 
   if (isDailyBriefing) {
     systemPrompt +=
-      "\n\nDAILY BRIEFING MODE: You are opening the day for this construction sales rep. Be extremely concise — maximum 3 sentences total. Sentence 1: one specific market insight using web search (a real permit or tender in their city if possible, with the project name/address). Sentence 2: one pipeline nudge if relevant (\"You haven't followed up with X in Y days\") — skip if no context. Sentence 3: one clear action invitation. No lists. No headers. No fluff. End there.";
+      "\n\nDAILY BRIEFING MODE: You are opening the day for this construction sales rep. Be extremely concise — maximum 3 sentences total. Sentence 1: one specific market insight using the market signals or web search (a real permit, tender, or rezoning in their city if possible). Sentence 2: one pipeline nudge if relevant — skip if no context. Sentence 3: one clear action invitation. No lists. No headers. No fluff. End there.";
   }
 
   const messages: Anthropic.MessageParam[] = [
