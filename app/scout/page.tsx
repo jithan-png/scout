@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ArrowUp, RotateCcw, Zap, History, Mic, Copy, Check, ArrowRight, X } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import BottomNav from "@/components/ui/BottomNav";
@@ -194,6 +195,7 @@ function BLogo({ size = 14 }: { size?: number }) {
 function ScoutPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const {
     setup,
     chatMessages,
@@ -301,6 +303,7 @@ function ScoutPageInner() {
             cities: setup.whereIOperate,
             projectTypes: setup.projectTypes,
           },
+          userId: session?.user?.email,
           isDailyBriefing: true,
         }),
       });
@@ -428,6 +431,7 @@ function ScoutPageInner() {
             cities: setup.whereIOperate,
             projectTypes: setup.projectTypes,
           },
+          userId: session?.user?.email,
         }),
       });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
   MessageCircle,
   Mail,
@@ -88,6 +88,8 @@ function ConnectModal({
   const accent = CONNECTION_ACCENT[conn.type];
   const detail = CONNECTION_DETAIL[conn.type];
   const isComing = detail.cta === "Coming soon";
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   return (
     <>
@@ -166,9 +168,43 @@ function ConnectModal({
             </p>
           </div>
 
+          {/* Sync result */}
+          {syncResult && (
+            <div
+              className="rounded-xl px-3 py-2 mb-3 text-[12px]"
+              style={{ background: "rgba(0,200,117,0.08)", color: "#34D399", border: "1px solid rgba(0,200,117,0.15)" }}
+            >
+              {syncResult}
+            </div>
+          )}
+
           {/* CTA */}
           <button
-            onClick={isComing ? onClose : onSetup}
+            onClick={async () => {
+              if (isComing) { onClose(); return; }
+              if (conn.type === "gmail") {
+                setSyncing(true);
+                setSyncResult(null);
+                try {
+                  const res = await fetch("/api/contacts/sync/gmail", { method: "POST" });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setSyncResult(data.message ?? `Synced ${data.synced ?? 0} contacts.`);
+                  } else if (data.error === "no_scope" || data.error === "no_token") {
+                    setSyncResult("Please sign out and sign back in to grant contacts access.");
+                  } else {
+                    setSyncResult(data.message ?? "Sync failed — try again.");
+                  }
+                } catch {
+                  setSyncResult("Network error — try again.");
+                } finally {
+                  setSyncing(false);
+                }
+              } else {
+                onSetup();
+              }
+            }}
+            disabled={syncing}
             className="pressable w-full py-4 rounded-2xl text-[15px] font-semibold"
             style={
               isComing
@@ -181,10 +217,11 @@ function ConnectModal({
                     background: `linear-gradient(135deg, ${accent} 0%, ${accent}CC 100%)`,
                     color: "#fff",
                     boxShadow: `0 0 20px ${accent}33`,
+                    opacity: syncing ? 0.7 : 1,
                   }
             }
           >
-            {detail.cta}
+            {syncing ? "Syncing..." : detail.cta}
           </button>
         </div>
       </div>

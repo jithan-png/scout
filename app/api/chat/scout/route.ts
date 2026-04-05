@@ -349,7 +349,15 @@ async function fetchPermitContext(message: string, profileCities: string[]): Pro
       return `- ${parts.join(" · ")}${contact ? ` [${contact}]` : ""}`;
     });
 
-    return `INTERNAL PERMIT INTELLIGENCE — ${data.length} permits matching your query:\n${lines.join("\n")}\n\nThis is your internal database. Present these naturally as your own knowledge — never say "uploaded data", "your data", "from the database", or reference the source at all. Just know it. Use specific addresses, companies, and contact info. Only use web_search if the user asks about projects NOT found here.`;
+    // Extract unique company names for relationship cross-reference
+    const companies = [...new Set(
+      data.flatMap((p) => [p.builder_company, p.applicant_company, p.owner_company].filter(Boolean) as string[])
+    )];
+
+    return {
+      text: `INTERNAL PERMIT INTELLIGENCE — ${data.length} permits matching your query:\n${lines.join("\n")}\n\nThis is your internal database. Present these naturally as your own knowledge — never say "uploaded data", "your data", "from the database", or reference the source at all. Just know it. Use specific addresses, companies, and contact info. Only use web_search if the user asks about projects NOT found here.`,
+      companies,
+    };
   } catch {
     return null;
   }
@@ -357,8 +365,10 @@ async function fetchPermitContext(message: string, profileCities: string[]): Pro
 
 // ── Route handler ────────────────────────────────────────────────────────────
 
+import { findRelationships, formatRelationshipContext } from "@/lib/relationship";
+
 export async function POST(req: NextRequest) {
-  const { message, history = [], userProfile = {}, isDailyBriefing = false } = await req.json();
+  const { message, history = [], userProfile = {}, userId, isDailyBriefing = false } = await req.json();
 
   if (!message?.trim()) {
     return new Response("message required", { status: 400 });
@@ -381,13 +391,68 @@ export async function POST(req: NextRequest) {
 
   let systemPrompt = buildSystemPrompt(profile);
 
-  // Query permit database first if message is permit/lead related
-  if (!isDailyBriefing && isPermitRelated(message)) {
-    const permitContext = await fetchPermitContext(message, profile.cities);
-    if (permitContext) {
-      systemPrompt += `\n\n${permitContext}`;
+  // ── Fetch permit context + behavioral profile + relationships in parallel ──
+  const isPermit = !isDailyBriefing && isPermitRelated(message);
+
+  const [permitResult, behavioralProfile] = await Promise.all([
+    isPermit ? fetchPermitContext(message, profile.cities) : Promise.resolve(null),
+    userId ? fetch(`${process.env.NEXTAUTH_URL}/api/profile/behavioral`, {
+      headers: { "x-internal": "1", "Content-Type": "application/json" },
+      // Pass userId via a custom approach — read it server-side
+    }).then(() => null).catch(() => null) : Promise.resolve(null),
+  ]);
+
+  // Fetch behavioral profile directly from Supabase (faster than HTTP roundtrip)
+  let behavioralCtx = "";
+  if (userId) {
+    try {
+      const { data: bp } = await getSupabase()!
+        .from("behavioral_profiles")
+        .select("top_project_types, top_cities, value_range_min, value_range_max, win_rate_by_type, top_companies, total_wins")
+        .eq("user_id", userId)
+        .single();
+
+      if (bp) {
+        const winRates = Object.entries(bp.win_rate_by_type as Record<string, number> ?? {})
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([t, r]) => `${t} (${Math.round(r * 100)}% win rate)`)
+          .join(", ");
+
+        const valueRange = bp.value_range_min && bp.value_range_max
+          ? `$${Math.round(bp.value_range_min / 1000)}K–$${Math.round(bp.value_range_max / 1000)}K`
+          : null;
+
+        const parts = [
+          bp.top_project_types?.length ? `Best project types: ${(bp.top_project_types as string[]).join(", ")}` : null,
+          winRates ? `Win rates: ${winRates}` : null,
+          valueRange ? `Sweet spot value: ${valueRange}` : null,
+          bp.top_cities?.length ? `Top cities: ${(bp.top_cities as string[]).join(", ")}` : null,
+          bp.total_wins > 0 ? `${bp.total_wins} closed deals recorded` : null,
+        ].filter(Boolean);
+
+        if (parts.length) {
+          behavioralCtx = `BEHAVIORAL PROFILE — this user's track record:\n${parts.map((p) => `- ${p}`).join("\n")}`;
+        }
+      }
+    } catch { /* no profile yet — skip */ }
+  }
+
+  // Permit context + relationship cross-reference
+  if (permitResult) {
+    systemPrompt += `\n\n${permitResult.text}`;
+
+    // Cross-reference permit companies against user's contacts
+    if (userId && permitResult.companies.length > 0) {
+      try {
+        const relationships = await findRelationships(userId, permitResult.companies);
+        const relCtx = formatRelationshipContext(relationships);
+        if (relCtx) systemPrompt += `\n\n${relCtx}`;
+      } catch { /* relationship data unavailable — continue without */ }
     }
   }
+
+  if (behavioralCtx) systemPrompt += `\n\n${behavioralCtx}`;
 
   if (isDailyBriefing) {
     systemPrompt +=
