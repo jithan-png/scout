@@ -102,7 +102,7 @@ interface AppStore {
 
   // Data connections
   connections: DataConnection[];
-  updateConnection: (id: string, status: DataConnection["status"]) => void;
+  updateConnection: (id: string, status: DataConnection["status"], dataPoints?: string) => void;
 
   // Chat
   chatMessages: ChatMessage[];
@@ -384,10 +384,10 @@ export const useAppStore = create<AppStore>()(
       // ── Data connections ──────────────────────────────────────────────────────
       connections: MOCK_DATA_CONNECTIONS,
 
-      updateConnection: (id, status) =>
+      updateConnection: (id, status, dataPoints) =>
         set((s) => ({
           connections: s.connections.map((c) =>
-            c.id === id ? { ...c, status } : c
+            c.id === id ? { ...c, status, ...(dataPoints !== undefined ? { dataPoints } : {}) } : c
           ),
         })),
 

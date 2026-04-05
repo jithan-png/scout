@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import {
   MessageCircle,
@@ -67,9 +67,9 @@ const CONNECTION_DETAIL: Record<DataConnection["type"], { what: string; how: str
     cta: "Coming soon",
   },
   excel: {
-    what: "Import your customer or contact list to instantly unlock warm paths — Scout will match your contacts against live permit and project data.",
-    how: "Upload a file with Name, Company, and Email columns. Scout handles the rest.",
-    cta: "Set up in wizard",
+    what: "Import your contacts from LinkedIn, HubSpot, Outlook, or any spreadsheet to unlock warm paths — Scout will cross-reference them against every permit and tender it finds.",
+    how: "LinkedIn: Settings → Data Privacy → Get a copy of your data → Connections.csv. Any CSV with Name, Company, and Email columns works.",
+    cta: "Import CSV",
   },
 };
 
@@ -79,10 +79,12 @@ function ConnectModal({
   conn,
   onClose,
   onSetup,
+  onConnected,
 }: {
   conn: DataConnection;
   onClose: () => void;
   onSetup: () => void;
+  onConnected?: (dataPoints: string) => void;
 }) {
   const Icon = CONNECTION_ICONS[conn.type];
   const accent = CONNECTION_ACCENT[conn.type];
@@ -90,6 +92,7 @@ function ConnectModal({
   const isComing = detail.cta === "Coming soon";
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <>
@@ -178,6 +181,42 @@ function ConnectModal({
             </div>
           )}
 
+          {/* Hidden file input for CSV import */}
+          {conn.type === "excel" && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setSyncing(true);
+                setSyncResult(null);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  formData.append("source", "csv");
+                  const res = await fetch("/api/contacts/import/csv", { method: "POST", body: formData });
+                  const data = await res.json();
+                  if (res.ok) {
+                    const msg = data.message ?? `Imported ${data.synced ?? 0} contacts.`;
+                    setSyncResult(msg);
+                    onConnected?.(`${data.synced ?? 0} contacts · ${data.companies ?? 0} companies`);
+                  } else {
+                    setSyncResult(data.error ?? "Import failed — check the CSV format.");
+                  }
+                } catch {
+                  setSyncResult("Network error — try again.");
+                } finally {
+                  setSyncing(false);
+                  // Reset input so same file can be re-selected
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }
+              }}
+            />
+          )}
+
           {/* CTA */}
           <button
             onClick={async () => {
@@ -189,7 +228,9 @@ function ConnectModal({
                   const res = await fetch("/api/contacts/sync/gmail", { method: "POST" });
                   const data = await res.json();
                   if (res.ok) {
-                    setSyncResult(data.message ?? `Synced ${data.synced ?? 0} contacts.`);
+                    const msg = data.message ?? `Synced ${data.synced ?? 0} contacts.`;
+                    setSyncResult(msg);
+                    onConnected?.(`${data.synced ?? 0} contacts · ${data.companies ?? 0} companies`);
                   } else if (data.error === "no_scope" || data.error === "no_token") {
                     setSyncResult("Please sign out and sign back in to grant contacts access.");
                   } else {
@@ -200,6 +241,9 @@ function ConnectModal({
                 } finally {
                   setSyncing(false);
                 }
+              } else if (conn.type === "excel") {
+                // Trigger file picker
+                fileInputRef.current?.click();
               } else {
                 onSetup();
               }
@@ -221,7 +265,7 @@ function ConnectModal({
                   }
             }
           >
-            {syncing ? "Syncing..." : detail.cta}
+            {syncing ? "Importing..." : detail.cta}
           </button>
         </div>
       </div>
@@ -465,7 +509,7 @@ function ScoutConfigBody() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { connections, resetStore, whatsappPhone, setWhatsappPhone } = useAppStore();
+  const { connections, updateConnection, resetStore, whatsappPhone, setWhatsappPhone } = useAppStore();
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const [activeConn, setActiveConn] = useState<DataConnection | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
@@ -664,6 +708,9 @@ export default function ProfilePage() {
           onSetup={() => {
             setActiveConn(null);
             router.push("/setup");
+          }}
+          onConnected={(dataPoints) => {
+            updateConnection(activeConn.id, "connected", dataPoints);
           }}
         />
       )}
